@@ -188,15 +188,16 @@ implicit in a patch embedding.
 \section{Methods}
 \label{sec:methods}
 
-% TODO: fig_pipeline.pdf is the thesis figure (1024 px patches). Panel (c), the "one of <=32
-% patches" label and the bottom row (2-layer GNN, additive fusion, mean/attention aggregator)
-% still show the patch version and must be regenerated for 4096 px regions before submission.
+% Figure: Dissertation/code/figures/latex/fig_pipeline_regions_server.py
 \begin{figure}[htbp]
 \floatconts
   {fig:pipeline}
-  {\caption{Pipeline on one TCGA slide. (a)--(c) Tissue detection and region sampling;
-  (d)--(f) nuclear segmentation by HoVer-Net and the Delaunay cell graph; bottom row: the
-  dual-branch model, whose region vectors are aggregated to a slide prediction.}}
+  {\caption{Pipeline on one TCGA slide. (a)--(c) Tissue detection and the sixteen nested
+  regions, coloured by the smallest budget $N$ that includes them. (d) One $4096$-pixel region
+  with the $4 \times 4$ grid of tiles embedded by UNI2-h (box: zoom of (e)). (e) HoVer-Net
+  nuclei coloured by type (red neoplastic, blue inflammatory, green connective, orange
+  non-neoplastic epithelial). (f) The Delaunay cell graph spanning the whole region across tile
+  boundaries (dashed). Bottom: the dual-branch model.}}
   {\includegraphics[width=0.8\linewidth]{figures/fig_pipeline.pdf}}
 \end{figure}
 
