@@ -3,9 +3,7 @@
 % The following packages will be automatically loaded:
 % jmlr, amsmath, amssymb, natbib, graphicx, url, algorithm2e
 % ifoddpage, relsize and probably more
-% make sure they are installed with your latex distribution
 
-\usepackage{mwe} % to get dummy images
 \jmlrvolume{-- Under Review}
 \jmlryear{2027}
 \jmlrworkshop{Full Paper -- MIDL 2027 submission}
@@ -13,45 +11,12 @@
 
 \title[Short Title]{Full Title of Article}
 
- % Use \Name{Author Name} to specify the name.
- % If the surname contains spaces, enclose the surname
- % in braces, e.g. \Name{John {Smith Jones}} similarly
- % if the name has a "von" part, e.g \Name{Jane {de Winter}}.
- % If the first letter in the forenames is a diacritic
- % enclose the diacritic in braces, e.g. \Name{{\'E}louise Smith}
-
- % Two authors with the same address
- % \midlauthor{\Name{Author Name1} \Email{abc@sample.edu}\and
- %  \Name{Author Name2} \Email{xyz@sample.edu}\\
- %  \addr Address}
-
- % Three or more authors with the same address:
- % \midlauthor{\Name{Author Name1} \Email{an1@sample.edu}\\
- %  \Name{Author Name2} \Email{an2@sample.edu}\\
- %  \Name{Author Name3} \Email{an3@sample.edu}\\
- %  \addr Address}
-
-
-% Authors with different addresses:
-% \midlauthor{\Name{Author Name1} \Email{abc@sample.edu}\\
-% \addr Address 1
-% \AND
-% \Name{Author Name2} \Email{xyz@sample.edu}\\
-% \addr Address 2
-% }
-
-%\footnotetext[1]{Contributed equally}
-
-% More complicate cases, e.g. with dual affiliations and joint authorship
-\midlauthor{\Name{Author Name1\midljointauthortext{Contributed equally}\nametag{$^{1,2}$}} \orcid{1111-2222-3333-4444} \Email{abc@sample.edu}\\
-\addr $^{1}$ Address 1 \\
-\addr $^{2}$ Address 2 \AND
-\Name{Author Name2\midlotherjointauthor\nametag{$^{1}$}} \Email{xyz@sample.edu}\\
-\Name{Author Name3\nametag{$^{2}$}} \Email{alphabeta@example.edu}\\
-\Name{Author Name4\midljointauthortext{Contributed equally}\nametag{$^{3}$}} \Email{uvw@foo.ac.uk}\\
-\addr $^{3}$ Address 3 \AND
-\Name{Author Name5\midlotherjointauthor\nametag{$^{4}$}} \Email{fgh@bar.com}\\
-\addr $^{4}$ Address 4
+% Single-blind: author names are revealed at submission.
+% NOTE: the author list is FINAL at submission time -- no additions,
+% removals or reordering after the deadline.
+\midlauthor{\Name{Jungro Lee\nametag{$^{1}$}} \Email{firstauthor@ucl.ac.uk}\\
+\Name{Petru Manescu\nametag{$^{1}$}} \Email{p.manescu@ucl.ac.uk}\\
+\addr $^{1}$ Department of Computer Science, University College London, London, UK
 }
 
 \begin{document}
@@ -59,94 +24,382 @@
 \maketitle
 
 \begin{abstract}
-This is a great paper and it has a concise abstract.
+% Abstract registration deadline: 2026-11-30 AoE.
 \end{abstract}
 
 \begin{keywords}
-List of keywords, comma separated.
+% comma separated
 \end{keywords}
 
-\section{Introduction}
+% =====================================================================
+% Page budget (main text limit: 10 pages, excluding references,
+% acknowledgements and appendix).
+%   Introduction ............ 1.5 p
+%   Related Work ............ 0.5 p
+%   Methods ................. 2.0 p
+%   Experiments and Results . 4.0 p
+%   Discussion .............. 1.0 p
+%   Conclusion .............. 0.3 p
+% Reviewers are not obliged to read the appendix: anything that
+% determines the evaluation must sit inside the 10 main pages.
+% =====================================================================
 
-This is where the content of your paper goes.  Some random
-notes\footnote{Random footnote are discouraged}:
+\section{Introduction}
+\label{sec:introduction}
+
+Most breast cancers are detected at an early stage and are hormone receptor-positive and
+HER2-negative (HR+/HER2$-$), and for these patients the central treatment question is
+whether to add chemotherapy to endocrine therapy. Only a minority derive benefit, so
+multi-gene assays were developed to estimate recurrence risk from tumour gene expression,
+of which the 21-gene recurrence score (RS) is the most widely used
+\citep{paik2004, sparano2018}. The assay is informative but expensive: it costs several
+thousand pounds per patient, consumes tumour tissue, and returns a result only one to two
+weeks after the haematoxylin and eosin (H\&E) slide has already been reviewed by a
+pathologist. A model that estimates the RS directly from the H\&E slide would therefore not
+replace the assay, but could triage which patients are sent for genomic testing at no
+additional tissue or turnaround cost. The task is plausible because the score is dominated
+by proliferation and oestrogen-signalling gene groups, and both leave visible traces in
+nuclear morphology and tissue architecture \citep{paik2004, elston1991}. Molecular readouts
+have indeed been recovered from H\&E in several settings, including driver mutations
+\citep{coudray2018}, microsatellite instability \citep{kather2019} and bulk expression
+\citep{schmauch2020}, and specifically for the RS by hand-crafted nuclear shape features
+\citep{whitney2018} and by deep learning \citep{howard2024}.
+
+Predicting a slide-level label from a whole-slide image (WSI) is constrained first by size.
+A slide scanned at $40\times$ spans on the order of $10^5 \times 10^5$ pixels and carries a
+single label that belongs to no particular region, which makes multiple instance learning
+(MIL) the standard formulation: the slide is treated as a bag of patches, each patch is
+encoded independently, and a permutation-invariant pooling function produces the slide
+representation \citep{dietterich1997, ilse2018, campanella2019}. Within this formulation the
+patch encoder has been progressively strengthened, moving from ImageNet-pretrained
+convolutional networks \citep{he2016, lu2021} to self-supervised pathology encoders and then
+to pathology foundation models trained on $10^5$--$10^6$ slides \citep{chen2024, filiot2023}.
+The patch budget, however, has not been revisited with the same care. Representative
+pipelines tile the tissue exhaustively \citep{campanella2019, lu2021} or sample on the order
+of $10^3$--$10^4$ tiles per slide \citep{courtiol2018, wulczyn2020}, and because both compute
+and memory scale with the number of patches, this choice dominates the cost of the method.
+
+A second limitation is representational. Pooling over patch embeddings discards the spatial
+arrangement of the patches, and a patch embedding itself summarises local texture rather
+than the individual cells and their relationships \citep{ilse2018, pati2022}. Graph neural
+networks (GNNs) were introduced into computational pathology to restore this structure. One
+family treats patches as nodes connected by spatial adjacency, as in SlideGraph+
+\citep{lu2022} and Patch-GCN \citep{chen2021}; another defines nodes at the level of
+individual nuclei, each carrying a morphometric descriptor and connected to the nuclei near
+it, so that tissue architecture is read directly instead of being inferred from texture
+\citep{zhou2019, pati2022}. Cell-level graphs are attractive for the present task because the
+quantities a pathologist grades, such as nuclear size, chromatin density, crowding and
+tubule formation, are explicit properties of the graph rather than latent directions in an
+embedding.
+
+In this work we combine the two views and ask how much tissue a model actually needs to see.
+Each slide is reduced to a small fixed budget of patches; within every patch, nuclei
+segmented by HoVer-Net \citep{graham2019} form the nodes of a cell graph whose node features
+are morphometric descriptors, and the resulting graph embedding is fused through a learned
+gate with a frozen UNI2-h embedding of the same patch before patch-level outputs are
+aggregated to the slide. Holding the architecture fixed, we then vary the patch budget and
+find that performance saturates well below the budgets used in the literature, so the signal
+relevant to the RS is not limited by spatial coverage. This reframes the design question from
+how much of the slide to process to which morphological properties carry the signal, and we
+address the second question by relating graph morphology and cell-type composition to
+receptor status and to the recurrence score.
+
+Our contributions are as follows.
 \begin{itemize}
-\item You should use \LaTeX \cite{Lamport:Book:1989}.
-\item JMLR/PMLR uses natbib for references. For simplicity, here, \verb|\cite|  defaults to
-  parenthetical citations, i.e. \verb|\citep|. You can of course also
-  use \verb|\citet| for textual citations.
-\item Eprints such as arXiv papers can of course be cited \cite{Hinton:arXiv:2015:Distilling}. We recomend using a \verb|@misc| bibtex entry for these as shown in the sample bibliography.
-\item You should follow the guidelines provided by the conference.
-\item Read through the JMLR template documentation for specific \LaTeX
-  usage questions.
-\item Note that the JMLR template provides many handy functionalities
-such as \verb|\figureref| to refer to a figure,
-e.g. \figureref{fig:example},  \verb|\tableref| to refer to a table,
-e.g. \tableref{tab:example} and \verb|\equationref| to refer to an equation,
-e.g. \equationref{eq:example}.
+\item A dual-branch model that fuses a nucleus-level cell graph with a frozen
+  pathology foundation model through a learned gate, followed by region attention MIL,
+  for binary RS prediction.
+\item A controlled study of the patch budget showing that predictive performance saturates
+  at a small number of patches per slide, across multiple GNN operators and random seeds, so
+  that competitive accuracy is attainable at a fraction of the usual inference cost.
+\item An analysis of which graph morphology features and cell types are associated with
+  HER2/PR status and with the recurrence score, identifying where the predictive signal
+  resides rather than only how much tissue is required to find it.
 \end{itemize}
 
-\begin{table}[htbp]
- % The first argument is the label.
- % The caption goes in the second argument, and the table contents
- % go in the third argument.
-\floatconts
-  {tab:example}%
-  {\caption{An Example Table}}%
-  {\begin{tabular}{ll}
-  \bfseries Dataset & \bfseries Result\\
-  Data1 & 0.12345\\
-  Data2 & 0.67890\\
-  Data3 & 0.54321\\
-  Data4 & 0.09876
-  \end{tabular}}
-\end{table}
+\section{Related Work}
+\label{sec:related-work}
 
-\begin{figure}[htbp]
- % Caption and label go in the first argument and the figure contents
- % go in the second argument
-\floatconts
-  {fig:example}
-  {\caption{Example Image}}
-  {\includegraphics[width=0.5\linewidth]{example-image}}
-\end{figure}
+\paragraph{Whole-slide image classification.}
+A slide scanned at $40\times$ spans on the order of $10^5 \times 10^5$ pixels and carries one
+label that belongs to no particular region, so slide-level prediction is posed as multiple
+instance learning: the slide becomes a bag of patches, an encoder embeds each patch
+independently, and a permutation-invariant pooling function reduces the bag to a slide
+representation \citep{dietterich1997, ilse2018}. Max-pooling with a recurrent aggregator
+scaled this to clinical cohorts \citep{campanella2019}, gated attention pooling made the
+aggregation learnable and exposed per-patch weights \citep{ilse2018}, and CLAM added
+instance-level clustering constraints \citep{lu2021}. The encoder has been strengthened in
+parallel, from ImageNet-pretrained convolutional networks \citep{he2016}, which capture local
+texture but transfer poorly across stain and scanner variation \citep{tellez2019}, to
+self-supervised pathology encoders and then to foundation models trained on $10^5$--$10^6$
+slides such as UNI \citep{chen2024} and Phikon \citep{filiot2023}. The patch budget has
+received less scrutiny than the encoder: exhaustive tiling \citep{campanella2019, lu2021} and
+sampling of $10^3$--$10^4$ tiles per slide \citep{courtiol2018, wulczyn2020} are both routine,
+and since compute and memory scale with the number of patches, it is this choice rather than
+the encoder that dominates the cost of running such a model.
 
-\begin{algorithm2e}
-\caption{Computing Net Activation}
-\label{alg:net}
- % older versions of algorithm2e have \dontprintsemicolon instead
- % of the following:
- %\DontPrintSemicolon
- % older versions of algorithm2e have \linesnumbered instead of the
- % following:
- %\LinesNumbered
-\KwIn{$x_1, \ldots, x_n, w_1, \ldots, w_n$}
-\KwOut{$y$, the net activation}
-$y\leftarrow 0$\;
-\For{$i\leftarrow 1$ \KwTo $n$}{
-  $y \leftarrow y + w_i*x_i$\;
-}
-\end{algorithm2e}
+\paragraph{Edge derivation in cell graphs.}
+Representing a patch as a cell graph fixes the nodes as segmented nuclei, but leaves open
+which nuclei are joined, and the three rules in common use encode different notions of
+neighbourhood. A $k$-nearest-neighbour rule connects each nucleus to its $k$ closest
+neighbours, which guarantees a connected graph of fixed degree but makes degree uninformative
+and lets edges span large distances in sparse stroma \citep{zhou2019}. A radius rule joins all
+nuclei within a fixed distance $\varepsilon$, so degree becomes a direct read-out of local
+crowding, at the cost of isolated nodes in sparse regions and quadratic edge growth in dense
+tumour nests \citep{pati2022}. Delaunay triangulation connects nuclei whose Voronoi cells are
+adjacent, producing a planar graph that approximates physical cell contact without a scale
+parameter, and is therefore the usual choice when the graph is meant to represent tissue
+architecture rather than proximity \citep{gunduz2004, lu2022}. Because degree carries
+different information under each rule, the operator that reads the graph and the rule that
+builds it cannot be chosen independently.
 
-\clearpage  % Acknowledgements, references, and appendix do not count toward the page limit (if any)
-% Acknowledgments---Will not appear in anonymized version
-\midlacknowledgments{We thank a bunch of people.}
+\paragraph{Predicting the recurrence score from H\&E.}
+The 21-gene recurrence score summarises the expression of sixteen cancer-related genes,
+normalised against five reference genes and aggregated into four functional group scores
+\citep{paik2004}. The unscaled score is a fixed weighted sum of those groups,
+\begin{equation}
+\label{eq:rs}
+\begin{split}
+\mathrm{RS}_{u} = \;&+0.47\,\mathrm{HER2} - 0.34\,\mathrm{ER} + 1.04\,\mathrm{Prolif}
++ 0.10\,\mathrm{Invasion} \\
+&+ 0.05\,\mathrm{CD68} - 0.08\,\mathrm{GSTM1} - 0.07\,\mathrm{BAG1},
+\end{split}
+\end{equation}
+which is then rescaled to the reported $0$--$100$ range as
+$\mathrm{RS} = \min\{100, \max\{0,\, 20(\mathrm{RS}_{u} - 6.7)\}\}$, with the HER2 and
+proliferation group scores thresholded from below before entering
+\equationref{eq:rs} \citep{paik2004}. The proliferation group carries the largest positive
+weight and the oestrogen group the only substantial negative one, which is what makes the
+score accessible from morphology at all: proliferation is visible as enlarged nuclei, dense
+chromatin, mitotic figures and crowding, while oestrogen signalling accompanies a
+differentiated, tubule-forming architecture with uniform nuclei \citep{elston1991}. Molecular
+readouts have accordingly been recovered from H\&E in several settings, including driver
+mutations \citep{coudray2018}, microsatellite instability \citep{kather2019} and bulk
+expression \citep{schmauch2020}. For the recurrence score specifically,
+\citet{whitney2018} showed that hand-crafted nuclear shape features separate low- from
+high-risk categories, and \citet{howard2024} reported an AUROC of 0.797 on TCGA-BRCA with
+patch-based deep learning. Both establish that the signal exists without localising it: the
+former fixes the morphological vocabulary in advance, the latter leaves the relevant structure
+implicit in a patch embedding.
 
+\section{Methods}
+\label{sec:methods}
 
-\bibliography{midl-samplebibliography}
+\subsection{Cell Graph Construction}
+\label{sec:cell-graph-construction}
 
+\paragraph{Resolution harmonisation.}
+The two cohorts are scanned at different magnifications, and nuclear segmentation is the step
+that is sensitive to this difference: a model trained to delineate nuclei at $40\times$
+under-segments when the same tissue arrives at $10\times$, since touching nuclei occupy too few
+pixels to be separated. We therefore harmonise resolution before segmentation rather than
+after. Tiles from the lower-magnification cohort are upsampled by a factor of four with
+Swin2SR \citep{conde2022}, a transformer-based super-resolution model, so that both cohorts
+enter the pipeline at an effective $0.25\,\mu$m/px. To verify that this does not fabricate
+structure, we segment tiles for which both a native $40\times$ scan and a super-resolved
+$10\times$ version exist, and match detections by centroid proximity: instance-level agreement
+reaches an F1 of 0.860, and cell-type agreement 0.887. Cell-type agreement is the relevant
+quantity, since the node features and graph statistics depend on the population of nuclei
+rather than on any individual detection.
+
+\paragraph{Nuclear segmentation.}
+Each patch is passed through HoVer-Net \citep{graham2019} with PanNuke-pretrained weights.
+HoVer-Net regresses horizontal and vertical distance maps alongside the nuclear mask, which
+separates touching nuclei that a purely semantic model merges, and a classification branch
+assigns each instance one of six PanNuke classes: neoplastic, inflammatory, connective or soft
+tissue, necrotic, non-neoplastic epithelial, and background. For every nucleus we retain the
+centroid, the polygonal contour, the axis-aligned bounding box, the predicted type and its
+confidence. Patches yielding fewer than two nuclei cannot support a graph and are discarded.
+A patch contains 285 nuclei on average (median 250, IQR 141--375) at a median
+nearest-neighbour spacing of $7.2\,\mu$m.
+
+\paragraph{Node features.}
+Each nucleus becomes a node, and we compare three ways of describing it while holding the node
+set and the edges fixed, so that any difference is attributable to the descriptor alone.
+\begin{itemize}
+\item \emph{Morphometric} ($13$-d). Built entirely from the HoVer-Net output: the
+  patch-normalised centroid (2), a one-hot encoding of the six PanNuke classes (6), the type
+  confidence (1), and four shape terms, namely log nuclear area, log perimeter, bounding-box
+  aspect ratio and convexity, each $z$-scored within the patch (4). Every term corresponds to
+  something a pathologist grades: nuclear enlargement and pleomorphism are two of the three
+  components of the Nottingham grade, aspect ratio separates elongated stromal nuclei from
+  rounder tumour nuclei, and convexity is low for the notched nuclei of high-grade carcinoma.
+\item \emph{Appearance-augmented} ($13+32$-d). The image region surrounding each nucleus is
+  encoded by a frozen Phikon-v2 \citep{filiot2023} and compressed to 32 dimensions by PCA,
+  then concatenated to the morphometric descriptor, so that message passing runs over nodes
+  that carry appearance as well as shape. This variant tests whether the graph branch is
+  limited by its hand-defined vocabulary.
+\item \emph{Extended morphometric} ($13+d_{\mathrm{ext}}$-d). The hand-defined vocabulary is
+  instead widened within the same explicit framework, adding eccentricity, solidity, the area
+  of the nucleus' Voronoi cell, the local nuclear density within a fixed radius, and the
+  cell-type composition of the immediate neighbourhood. This separates "the features are too
+  few" from "hand-defined features are the wrong kind".
+\end{itemize}
+
+\paragraph{Edges.}
+Edges are derived from the centroid coordinates by Delaunay triangulation, which connects
+nuclei whose Voronoi cells are adjacent. This yields a connected planar graph with mean degree
+close to six and requires no scale parameter, so the same rule transfers between cohorts whose
+cellular density differs; the resulting graphs are near-identical in degree statistics across
+the two cohorts (mean degree 5.88 and 5.85), unlike a fixed-radius rule.
+
+\subsection{Dual-Branch Architecture}
+\label{sec:dual-branch-architecture}
+
+\paragraph{Graph branch.}
+Three message-passing operators are compared on identical graphs, chosen because they differ
+in how a node weights its neighbours. GCN \citep{kipf2017} applies a symmetric normalised
+convolution, which damps the degree signal without removing it. GAT \citep{velickovic2018}
+learns an attention coefficient per edge, so the model can decide that a neighbouring
+lymphocyte matters more than a neighbouring stromal cell, but the softmax normalises over the
+neighbourhood and is therefore blind to degree. GIN \citep{xu2019} sums over neighbours before
+an MLP, and is the only one of the three whose aggregation is not degree-normalised, so local
+crowding enters the representation directly. Each operator is used as a stack of $L=2$ layers
+of hidden width $H$, each followed by batch normalisation, ReLU and dropout. Two hops already
+cover a neighbourhood of dozens of nuclei at 285 nuclei per patch, and deeper stacks gave no
+gain at a clearly higher cost. Node embeddings within a patch are pooled by concatenating
+their mean and element-wise maximum and projecting back to $H$,
+\begin{equation}
+\label{eq:patch-readout}
+z^{g}_{p} = \mathrm{ReLU}\!\left( W \left[ \tfrac{1}{|V_p|} \textstyle\sum_{i \in V_p} h_i
+\;\big\|\; \max_{i \in V_p} h_i \right] \right),
+\end{equation}
+which retains both the typical nucleus and the most extreme one, since a single highly
+abnormal nucleus can be diagnostically decisive.
+
+\paragraph{Image branch.}
+The same patch is encoded by a frozen UNI2-h \citep{chen2024}. Because the encoder expects
+roughly 224-pixel inputs and downsampling a 1024-pixel tile that far would blur away
+cell-level detail, each tile is divided into a $4\times4$ grid, each cell is resized and
+embedded, and the sixteen embeddings are averaged. The cached vector is projected to width $H$
+by LayerNorm, a linear map, ReLU and dropout, giving $z^{u}_{p}$. The encoder is frozen
+throughout: the question is what the graph adds on top of a strong image representation, and
+that comparison is only clean if the image representation cannot co-adapt to the graph branch.
+
+\paragraph{Gated fusion.}
+The two branches are combined at patch level, before slide aggregation, by a single learned
+scalar weighting the image branch against the normalised graph branch,
+\begin{equation}
+\label{eq:fusion}
+z_{p} = g \cdot z^{u}_{p} + \mathrm{LayerNorm}\!\left( z^{g}_{p} \right),
+\end{equation}
+where $g$ is initialised at 1 and learned with the rest of the network. The value of $g$ is
+directly interpretable: $g>1$ means the image branch dominates, $g<1$ the cell graph, and
+$g \approx 1$ that the two are weighted about equally, and we report it as a result.
+
+\paragraph{Region attention MIL.}
+The fused patch vectors $\{z_p\}_{p=1}^{P}$ of a slide are reduced to a single slide vector by
+gated attention pooling \citep{ilse2018},
+\begin{equation}
+\label{eq:abmil}
+z_{S} = \sum_{p} a_{p} z_{p}, \qquad
+a_{p} = \frac{\exp\!\left( w^{\top} \left( \tanh(V z_{p}) \odot \mathrm{sigm}(U z_{p}) \right) \right)}
+{\sum_{q} \exp\!\left( w^{\top} \left( \tanh(V z_{q}) \odot \mathrm{sigm}(U z_{q}) \right) \right)},
+\end{equation}
+so that the weights $a_p$ can be read directly as region importance and inspected against the
+morphology of the regions they select.
+
+\paragraph{Multi-task prediction head.}
+The slide vector passes through LayerNorm, a linear layer, ReLU and dropout into three
+sigmoid-activated outputs, predicting HER2 status, PR status and the binarised recurrence
+score from the same representation. Training minimises the weighted sum of their binary
+cross-entropies,
+\begin{equation}
+\label{eq:loss}
+\mathcal{L} = \lambda_{\mathrm{RS}} \mathcal{L}_{\mathrm{RS}}
++ \lambda_{\mathrm{HER2}} \mathcal{L}_{\mathrm{HER2}}
++ \lambda_{\mathrm{PR}} \mathcal{L}_{\mathrm{PR}}.
+\end{equation}
+Predicting the receptor states alongside the score is not an auxiliary convenience. The
+recurrence score is itself a weighted combination of a HER2 group and an oestrogen group
+(\equationref{eq:rs}), so a model that recovers the receptor states from morphology is
+recovering the constituents of the quantity it is asked to predict, and the three heads give
+three views of the same question of where the signal resides.
+
+\subsection{Region Sampling Protocol}
+\label{sec:region-sampling-protocol}
+
+Tissue is separated from background glass by Otsu thresholding of the slide thumbnail. A
+non-overlapping grid of $1024$-pixel cells ($256\,\mu$m at $0.25\,\mu$m/px) is laid over the
+level-0 slide, cells whose tissue fraction falls below 50\% are discarded, and $N$ of the
+surviving cells are retained at a uniform stride through the candidate list, so that the
+sample is spread across the section rather than concentrated wherever scanning began. The
+budget $N$ is the quantity we vary. All other components are held fixed while $N$ is swept,
+and each setting is repeated over several random seeds, so that the resulting curve separates
+a genuine dependence on coverage from the variance of the sampling itself. During training a
+fresh subset of up to $N$ patches is drawn each epoch, which acts as bag-level augmentation
+and bounds memory.
+
+% TODO: state the swept values of N and the number of seeds once the experiment has run
+
+\section{Experiments and Results}
+\label{sec:experiments}
+
+% ~4 pages total across the three subsections.
+
+\subsection{Setup}
+\label{sec:setup}
+
+\paragraph{TCGA-BRCA (internal).}
+Diagnostic formalin-fixed sections were obtained from the Genomic Data Commons, giving 1,099
+readable slides from 1,039 patients, of which 1,097 yield usable cell graphs (34,285 patch
+graphs). TCGA never ran the commercial Oncotype DX assay, so the label is a research-grade
+recurrence score derived from bulk RNA sequencing of the published 21 genes normalised
+against the five reference genes \citep{paik2004}, standardised to zero mean and unit
+variance. Thresholding at the 85th percentile of the HR+/HER2$-$ subset, following
+\citet{howard2024}, places 316 slides (28.8\%) in the high-risk class. Slides are scanned at
+$40\times$ ($0.25\,\mu$m/px), so no resolution adjustment is required. All model selection
+and internal evaluation use three-fold, patient-level cross-validation on the HR+/HER2$-$
+subset (573 slides, 535 patients), with splits made at the patient level so that the 56
+patients contributing more than one slide cannot appear on both sides of a fold.
+
+\paragraph{UCH (external).}
+The external cohort was collected at the University of Chicago Hospital and, unlike TCGA,
+carries clinically assayed Oncotype DX scores, which makes it the stricter test of
+generalisation: the model must transfer across both scanner and label provenance. Slides were
+supplied as pre-extracted tiles of $299\times299$ pixels at $302\,\mu$m per tile
+($\approx 10\times$) rather than as whole-slide images, and 512 distinct slides survive
+de-duplication (15,672 patch graphs). Because this magnification is well below the
+$40\times$ at which HoVer-Net was trained, each tile is upsampled by a factor of four with
+Swin2SR \citep{conde2022} before segmentation; on TCGA tiles for which both versions exist,
+segmentation on super-resolved input agrees with native $40\times$ at an instance-level F1 of
+0.860 and a cell-type accuracy of 0.887, and cell-type agreement is the quantity the node
+features depend on. Scans and assay results overlap only partially, so external numbers are
+reported on the 429 slides that have both a processed graph and an assayed score (80 high
+risk, 349 low risk; median score 17, IQR 12--23). This cohort is used strictly for external
+validation and never for model selection.
+
+% TODO: training configuration, hyperparameters, metrics, compute environment
+
+\subsection{Does More Region Sampling Help?}
+\label{sec:more-region-sampling}
+
+\subsection{Where Does the Signal Live?}
+\label{sec:where-signal-lives}
+
+\section{Discussion}
+\label{sec:discussion}
+
+% ~1 page
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+% ~0.3 pages
+
+\clearpage  % Acknowledgements, references and appendix do not count toward the page limit
+
+% Will not appear in the anonymised version -- MIDL is single-blind, so this is kept.
+\midlacknowledgments{}
+
+\bibliography{references}
 
 \appendix
 
-\section{Proof of Theorem 1}
+\section{Implementation Details}
+\label{app:implementation-details}
 
-This is a boring technical proof of
-\begin{equation}\label{eq:example}
-\cos^2\theta + \sin^2\theta \equiv 1.
-\end{equation}
-
-\section{Proof of Theorem 2}
-
-This is a complete version of a proof sketched in the main text.
+\section{Additional Results}
+\label{app:additional-results}
 
 \end{document}
