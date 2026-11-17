@@ -432,6 +432,17 @@ configuration is applied as the ensemble of its five fold models (mean of the fi
 probabilities) without retraining or recalibration, and we report patient-level AUROC with a
 95\% confidence interval from 2,000 patient bootstrap resamples.
 
+\paragraph{Random seeds.}
+Three sources of randomness are fixed so that every comparison in this section is paired. The
+region draw of each slide is seeded by the slide itself (the last eight digits of its Imaging
+Data Commons series UID for TCGA, a CRC32 hash of the slide name for UCH and CPTAC), so every
+model, every budget $N$ and every rerun sees exactly the same tissue, and the nested draws of
+\sectionref{sec:region-sampling-protocol} follow from the same shuffle. The five splits are
+generated once per target with seed 1 (validation patients of fold $f$ with seed $1+f$) and
+shared by all models. Fold $f$ is trained with seed $42+f$ for weight initialisation, batch
+order and dropout. The reported standard deviation is therefore the
+spread across folds, i.e.\ across disjoint test patients, rather than across seeds.
+
 \paragraph{Training.}
 Models are trained for 60 epochs with AdamW (learning rate $10^{-4}$, weight decay $10^{-3}$)
 and cosine annealing to $10^{-6}$, a batch of four slides and dropout 0.3, on a single
@@ -520,8 +531,173 @@ gains in PR do not transfer: UCH PR stays at 66--67 for every $N$.
 % TODO: fold-wise paired Delta-AUROC (gated - image, N vs N=2) with bootstrap CI
 %       (code/model/region_deltas.py) to back the saturation claim statistically
 
+\subsection{Contiguous Regions or Scattered Patches?}
+\label{sec:regions-vs-patches}
+
+$N=2$ regions cover the same tissue area as the conventional layout this work started from:
+32 patches of $1024$ pixels ($256\,\mu$m) per slide, taken from a non-overlapping grid of
+tissue cells ($\geq 50\%$ tissue) at a uniform stride through the candidate list, so that they
+are spread over the whole section (31.3 patches per slide on average). In the patch layout
+HoVer-Net runs on each patch, every patch carries its own Delaunay graph and a single UNI2-h
+embedding, and the attention MIL pools 32 patches instead of two regions. Model, splits, seeds
+and training are otherwise identical, so the comparison in \tableref{tab:patch-region} isolates
+\emph{where} a fixed 2.1\,mm$^2$ of tissue is taken from: 32 scattered fields or two contiguous
+1\,mm fields whose cell graph runs across tile borders.
+
+\begin{table}[htbp]
+\floatconts
+  {tab:patch-region}
+  {\caption{Area-matched comparison on TCGA (five-fold AUROC, \%, mean $\pm$ SD): 32 scattered
+  $1024$-pixel patches versus $N=2$ contiguous $4096$-pixel regions, both 2.1\,mm$^2$ per slide.
+  The $N=16$ column (16.8\,mm$^2$) is repeated from \tableref{tab:tcga} for reference.}}
+  {\small
+  \begin{tabular}{llccc}
+  \hline
+  Target & Model & 32 patches & $N=2$ regions & $N=16$ regions \\
+  \hline
+  RS   & Image & 86.3 $\pm$ 4.0 & 84.2 $\pm$ 4.0 & 86.1 $\pm$ 4.7 \\
+       & Graph & 76.7 $\pm$ 3.8 & 76.2 $\pm$ 3.5 & 79.7 $\pm$ 5.0 \\
+       & Gated & 85.8 $\pm$ 4.5 & 85.1 $\pm$ 3.9 & 85.5 $\pm$ 3.1 \\
+  \hline
+  PR   & Image & 80.6 $\pm$ 1.9 & 76.8 $\pm$ 3.6 & 81.3 $\pm$ 2.6 \\
+       & Graph & 69.2 $\pm$ 2.3 & 65.5 $\pm$ 3.0 & 73.1 $\pm$ 4.0 \\
+       & Gated & 79.4 $\pm$ 1.5 & 76.8 $\pm$ 3.3 & 79.2 $\pm$ 2.1 \\
+  \hline
+  HER2 & Image & 67.8 $\pm$ 4.8 & 69.9 $\pm$ 2.4 & 73.1 $\pm$ 2.6 \\
+       & Graph & 58.5 $\pm$ 7.4 & 62.1 $\pm$ 3.5 & 63.8 $\pm$ 5.7 \\
+       & Gated & 71.4 $\pm$ 5.0 & 70.3 $\pm$ 4.6 & 74.0 $\pm$ 2.4 \\
+  \hline
+  \end{tabular}}
+\end{table}
+
+At equal area the two layouts are indistinguishable for the RS: every difference is below one
+point for the graph and gated models and within one fold standard deviation for all three. The
+RS signal is therefore available in any two fields of tumour, whether they are scattered or
+contiguous. PR is the exception. Scattered patches beat two regions by 3.8 points (image) and
+3.7 points (graph), and the contiguous layout closes this gap only at $N=8$ (graph) or $N=16$
+(image), i.e.\ with four to eight times the area. PR expression can be heterogeneous within a
+tumour, and spatial spread rather than area appears to be what PR prediction needs; this is consistent with the
+monotone rise of PR with $N$ in \tableref{tab:tcga}. For HER2 the contiguous graph is 3.6
+points better and considerably more stable across folds (SD 3.5 versus 7.4), which we
+attribute to the larger graph context of a whole region; the fused models do not differ.
+The region layout is nevertheless the one that scales: it runs HoVer-Net once per 1\,mm
+field without seams at tile borders, and it provides the nested budgets that the patch layout,
+fixed at 32 fields, cannot.
+
+\subsection{Edge Rule Ablation}
+\label{sec:edge-ablation}
+
+\begin{figure}[htbp]
+% Figure: Dissertation/code/figures/latex/fig_cohort_graphs.py
+\floatconts
+  {fig:cohort-graphs}
+  {\caption{HoVer-Net output and cell graphs. Columns 1--3: one region per cohort, chosen as the
+  region whose nucleus count is closest to the cohort median, shown on the $192\,\mu$m window with
+  the most neoplastic nuclei. Top: nuclear contours coloured by HoVer-Net type. Bottom: the
+  Delaunay graph used for training (nodes coloured by type). Column 4: the TCGA window under the
+  two ablated edge rules. Titles give the mean $\pm$ SD node degree of the whole region.}}
+  {\includegraphics[width=\linewidth]{figures/fig_cohort_graphs.pdf}}
+\end{figure}
+
+The node set and the 13 node features are fixed by segmentation; the edge rule is the one
+free design choice of the graph branch (\sectionref{sec:related-work}). We rebuild the edges
+of every $N=2$ TCGA region with the two rules that compete with Delaunay triangulation,
+symmetrised $k$-nearest neighbours ($k=6$) and a fixed radius of $27.5\,\mu$m (110 pixels), and
+retrain the graph-only and gated models with all else held fixed (\tableref{tab:edge}).
+\figureref{fig:cohort-graphs} shows why the rules behave differently. Delaunay has a mean
+degree of 6.0 in all three cohorts although their nucleus counts differ by half (2,493 nuclei
+in the UCH region versus 3,790 in TCGA), and $k$-NN is equally density-blind (7.1 $\pm$ 1.1)
+but adds chords across empty stroma. The radius graph alone encodes local density, with a mean
+degree of 12.1 that ranges from 5 to 22 between regions (5th--95th percentile) and 2.2\% isolated nuclei, and
+it therefore changes with the cohort's cellularity and with any residual scale mismatch from
+super-resolution.
+
+\begin{table}[htbp]
+\floatconts
+  {tab:edge}
+  {\caption{Edge rule ablation on TCGA at $N=2$ (five-fold AUROC, \%, mean $\pm$ SD). Nodes,
+  node features, splits and seeds are identical across rules.}}
+  {\small
+  \begin{tabular}{llccc}
+  \hline
+  Target & Model & Delaunay & $k$-NN ($k=6$) & Radius ($27.5\,\mu$m) \\
+  \hline
+  RS   & Graph & 76.2 $\pm$ 3.5 & EDGE-KNN-ODX-GRAPH & EDGE-RAD-ODX-GRAPH \\
+       & Gated & 85.1 $\pm$ 3.9 & EDGE-KNN-ODX-GATED & EDGE-RAD-ODX-GATED \\
+  \hline
+  PR   & Graph & 65.5 $\pm$ 3.0 & EDGE-KNN-PR-GRAPH & EDGE-RAD-PR-GRAPH \\
+       & Gated & 76.8 $\pm$ 3.3 & EDGE-KNN-PR-GATED & EDGE-RAD-PR-GATED \\
+  \hline
+  HER2 & Graph & 62.1 $\pm$ 3.5 & EDGE-KNN-HER2-GRAPH & EDGE-RAD-HER2-GRAPH \\
+       & Gated & 70.3 $\pm$ 4.6 & EDGE-KNN-HER2-GATED & EDGE-RAD-HER2-GATED \\
+  \hline
+  \end{tabular}}
+\end{table}
+
+% TODO: results paragraph for tab:edge once Results/runs/region5fold_edge_{knn6,radius110} finish
+
 \subsection{Where Does the Signal Live?}
 \label{sec:where-signal-lives}
+
+To relate the predictions to quantities a pathologist can read, we summarise every $N=2$
+region by fourteen descriptors computed directly from the HoVer-Net output and the Delaunay
+graph, in physical units: nuclear density and the fraction of each cell type (composition);
+the median area, area coefficient of variation (CV), aspect ratio and convexity of the
+neoplastic nuclei (nuclear morphology); and the median Delaunay side length, clustering
+coefficient, number of nuclei within $30\,\mu$m and the CV of Voronoi cell areas
+(architecture). Descriptors are averaged over all regions of a patient and tested
+univariately: Spearman's $\rho$ against the continuous RS (RNA-derived in TCGA, clinical in
+UCH) and the AUROC of the raw descriptor for PR and HER2 status, with Benjamini--Hochberg
+correction within each column (\tableref{tab:morph}).
+
+\begin{table}[htbp]
+\floatconts
+  {tab:morph}
+  {\caption{Patient-level association of region morphology with the targets. $\rho$: Spearman
+  correlation with the continuous RS. AUROC: discrimination by the raw descriptor ($<50$: lower in
+  positive patients). $^{*}$\,$q<0.05$, $^{**}$\,$q<0.001$ (Benjamini--Hochberg within column).
+  TCGA $n$ = 1,038 / 986 / 843 patients; UCH $n$ = 416 / 499. UCH HER2 (9 positives) is omitted.}}
+  {\small
+  \begin{tabular}{lccc|cc}
+  \hline
+   & \multicolumn{3}{c|}{TCGA} & \multicolumn{2}{c}{UCH} \\
+  Descriptor & RS $\rho$ & PR AUROC & HER2 AUROC & RS $\rho$ & PR AUROC \\
+  \hline
+  Nuclei per mm$^2$          & $+0.23^{**}$ & $0.44^{*}$  & 0.47        & $+0.03$      & 0.50 \\
+  Neoplastic fraction        & $+0.19^{**}$ & $0.45^{*}$  & 0.49        & $+0.08$      & 0.47 \\
+  Inflammatory fraction      & $+0.07^{*}$  & $0.45^{*}$  & 0.56        & $+0.01$      & 0.48 \\
+  Connective fraction        & $-0.28^{**}$ & $0.60^{**}$ & 0.49        & $-0.11$      & 0.55 \\
+  Necrotic fraction          & $+0.21^{**}$ & $0.40^{**}$ & 0.53        & $+0.07$      & 0.51 \\
+  Non-neopl.\ epith.\ fraction & $-0.24^{**}$ & $0.58^{**}$ & 0.45      & $-0.10$      & 0.54 \\
+  \hline
+  Neopl.\ nuclear area       & $+0.03$      & 0.46        & 0.51        & $+0.06$      & 0.51 \\
+  Neopl.\ area CV            & $+0.47^{**}$ & $0.33^{**}$ & $0.61^{**}$ & $+0.21^{**}$ & 0.50 \\
+  Neopl.\ aspect ratio       & $+0.03$      & 0.51        & 0.53        & $-0.13^{*}$  & 0.49 \\
+  Neopl.\ convexity          & $-0.27^{**}$ & 0.54        & 0.46        & $-0.12$      & 0.47 \\
+  \hline
+  Delaunay side length       & $-0.14^{**}$ & 0.52        & 0.56        & $-0.01$      & 0.50 \\
+  Clustering coefficient     & $-0.06^{*}$  & 0.51        & 0.50        & $-0.11$      & 0.51 \\
+  Nuclei within 30\,$\mu$m   & $+0.13^{**}$ & 0.48        & 0.43        & $-0.04$      & 0.51 \\
+  Voronoi area CV            & $-0.15^{**}$ & $0.57^{**}$ & 0.47        & $-0.11$      & 0.55 \\
+  \hline
+  \end{tabular}}
+\end{table}
+
+One descriptor dominates. The CV of neoplastic nuclear area, a direct measure of nuclear
+pleomorphism, correlates with the RS at $\rho=0.47$ in TCGA, is the only descriptor associated
+with all three targets (higher in PR$-$ and in HER2+ patients), and is the only one that
+replicates on the clinical RS of UCH ($\rho=0.21$, $q<0.001$). Irregular nuclear outlines
+(lower convexity), necrosis and a tumour-rich, stroma-poor composition also accompany a high
+RS in TCGA, matching the pleomorphism and proliferation components of histological grade
+\citep{elston1991} that the RS proliferation group tracks. Median nuclear size, by contrast, is
+unrelated to any target, so it is the variability of the nuclei rather than their size that
+carries the signal. The compositional associations do not replicate on UCH, whose patients were
+referred for the assay and are almost all ER+ and HER2$-$ (97\% and 98\%), so the cohort spans a
+narrower biological range than TCGA; no
+descriptor separates PR status there, in line with the weak external PR transfer of
+\tableref{tab:external}. Because pleomorphism is a property of a population of nuclei, it can be
+estimated from a few thousand nuclei, which is what two regions already provide; this offers one
+explanation for why the RS saturates at small $N$.
 
 \section{Discussion}
 \label{sec:discussion}
