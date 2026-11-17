@@ -221,139 +221,124 @@ patch-based deep learning.
 \section{Methods}
 \label{sec:methods}
 
-% Figure: Dissertation/code/figures/latex/fig_pipeline_regions_server.py
-\begin{figure}[htbp]
-\floatconts
-  {fig:pipeline}
-  {\caption{Pipeline on one TCGA slide. (a)--(c) Tissue detection and the sixteen nested
-  regions, coloured by the smallest budget $N$ that includes them. (d) One $4096$-pixel region
-  with the $4 \times 4$ grid of tiles embedded by UNI2-h (box: zoom of (e)). (e) HoVer-Net
-  nuclei coloured by type (red neoplastic, blue inflammatory, green connective, orange
-  non-neoplastic epithelial). (f) The Delaunay cell graph spanning the whole region across tile
-  boundaries (dashed). Bottom: the dual-branch model.}}
-  {\includegraphics[width=0.8\linewidth]{figures/fig_pipeline.pdf}}
-\end{figure}
+The pipeline turns one gigapixel slide into one risk estimate, and it does so in two halves.
+The first half builds the input. A slide is reduced to $N$ tissue regions, those regions are
+brought to a common resolution by applying SwinSR, and their nuclei are segmented through Hover-Net, each nucleus is given a
+morphometric descriptor, and the nuclei of a region are joined into one cell graph by using delaunay graph method. 
+The second
+half is the model. A graph branch encodes the cell graph of a region by applying a GCN model, an image branch encodes
+the same region from its tiles with Uni2-h pre-trained encoder, a learned gate fuses the two, attention over regions reduces a
+slide to one vector, and a head produces the prediction. \sectionref{sec:cell-graph-construction}
+covers the first half and \sectionref{sec:dual-branch-architecture} the second. The budget $N$
+is the one quantity we vary, and \sectionref{sec:region-sampling-protocol} describes how.
 
-\figureref{fig:pipeline} summarises the pipeline. A slide is reduced to $N$ tissue regions of
-$4096 \times 4096$ pixels at $0.25\,\mu$m/px; each region yields one cell graph and sixteen
-tile embeddings, the two are fused per region, and the regions are aggregated to the slide.
-
-\subsection{Region-Level Cell Graph Construction}
+\subsection{Cell Graph Construction}
 \label{sec:cell-graph-construction}
 
-\paragraph{Regions.}
-Tissue is separated from background glass by Otsu thresholding of a low-resolution level of
-the slide. Candidate windows of $4096 \times 4096$ level-0 pixels ($1.02$\,mm on a side) are
-laid on a half-window stride, windows with a tissue fraction below 0.6 are discarded (0.3 if
-none survive), and $N$ non-overlapping windows are drawn at random with a seed fixed per
-slide. A region is the unit seen by both branches: it is large enough to contain glandular
-and stromal architecture, yet small enough for a single cell graph to cover it.
+First, tissue is separated from background glass by Otsu thresholding of a
+low-resolution level of the slide. Candidate windows of $4096 \times 4096$ level-0 pixels
+($1.02$\,mm on a side) are laid on a half-window stride. Windows with a tissue fraction below
+0.6 are discarded, or below 0.3 if none survives, and $N$ non-overlapping windows are then
+drawn at random with a seed fixed per slide. 
 
-\paragraph{Resolution harmonisation.}
-The three cohorts are scanned at different magnifications, and nuclear segmentation is the
-step that is sensitive to this difference: a model trained to delineate nuclei at $40\times$
-under-segments lower-magnification input, since touching nuclei occupy too few pixels to be
-separated. We therefore harmonise resolution before segmentation rather than after, with the
-transformer-based super-resolution model Swin2SR \citep{conde2022}. Slides scanned at
+Second, resolution is harmonised. The three datasets are scanned at different magnifications,
+and segmentation through Hover-Net is the step that is sensitive to this. A model trained to delineate nuclei at
+$40\times$ under-segments lower-magnification input, because touching nuclei occupy too few
+pixels to be separated. We therefore harmonise before segmentation , using
+the transformer-based super-resolution model Swin2SR \citep{conde2022}. Slides scanned at
 $20\times$ (51 TCGA slides and 144 of the 273 CPTAC-BRCA series) are cut at 2048 pixels and
 upsampled $\times 2$. The UCH cohort is distributed only as $299$-pixel tiles at
-$1.01\,\mu$m/px ($\approx 10\times$); a region is formed from a $4 \times 4$ block of
-adjacent tiles that all contain tissue, stitched to 1196 pixels, centre-cropped to 1024
+$1.01\,\mu$m/px ($\approx 10\times$). For these, a region is formed from a $4 \times 4$ block
+of adjacent tiles that all contain tissue, stitched to 1196 pixels, centre-cropped to 1024
 pixels ($1.03$\,mm) and upsampled $\times 4$. Every region therefore enters segmentation with
-the same physical field and the same effective $0.25\,\mu$m/px. To verify that $\times 4$
-upsampling does not fabricate structure, we segment TCGA fields for which both a native
-$40\times$ scan and a super-resolved $10\times$ version exist and match detections by centroid
-proximity: instance-level agreement reaches an F1 of 0.860 and cell-type accuracy 0.887. The
-latter is the relevant quantity, since the node features and graph statistics depend on the
-population of nuclei rather than on any individual detection.
+the same physical field and the same effective $0.25\,\mu$m/px. We also check that $\times 4$
+upsampling does not fabricate structure. We segment TCGA fields for which both a native
+$40\times$ scan and a super-resolved $10\times$ version exist, and we match detections by
+centroid proximity. Instance-level agreement reaches an F1 of 0.860 and cell-type accuracy
+0.887. The latter is the quantity that matters, since the node features and graph statistics
+depend on the population of nuclei rather than on any individual detection.
 
-\paragraph{Nuclear segmentation.}
-Each region is passed whole through HoVer-Net \citep{graham2019} with PanNuke-pretrained
-weights, in tile mode with overlapping stitching, so nuclei on internal tile boundaries are
-not cut. HoVer-Net regresses horizontal and vertical distance maps alongside the nuclear
-mask, which separates touching nuclei that a purely semantic model merges, and a
-classification branch assigns each instance one of six PanNuke classes: neoplastic,
-inflammatory, connective or soft tissue, necrotic, non-neoplastic epithelial, and an
-unlabelled background class. For every nucleus we retain the centroid, the polygonal contour,
-the axis-aligned bounding box, the predicted type and its confidence. A TCGA region contains
-on average 3,971 nuclei (median 3,855, interquartile range 2,286--5,198), against 2,664 in UCH
-and 4,122 in CPTAC-BRCA. Regions with too few nuclei to triangulate, which are background,
-yield no graph and are discarded.
+Third, nuclei are segmented. Each region is passed through HoVer-Net \citep{graham2019}
+with PanNuke-pretrained weights, in tile mode with overlapping stitching, so that nuclei on
+internal tile boundaries are not cut. HoVer-Net regresses horizontal and vertical distance maps
+alongside the nuclear mask, which separates touching nuclei that a purely semantic model
+merges. A classification branch then assigns each instance one of six PanNuke classes:
+neoplastic, inflammatory, connective or soft tissue, necrotic, non-neoplastic epithelial, and
+an unlabelled background class. For every nucleus we retain the centroid, the polygonal
+contour, the axis-aligned bounding box, the predicted type and its confidence. A TCGA region
+contains 3,971 nuclei on average (median 3,855, interquartile range 2,286--5,198), against
+2,664 in UCH and 4,122 in CPTAC-BRCA. Regions with too few nuclei to triangulate are
+background, yield no graph, and are discarded.
 
-\paragraph{Node features.}
-Each nucleus becomes a node with a $13$-dimensional morphometric descriptor built entirely from
-the HoVer-Net output: the centroid (2), a one-hot encoding of the six PanNuke classes (6), the
-type confidence (1), and four shape terms, namely log nuclear area, log perimeter,
-bounding-box aspect ratio and convexity (4). Centroid and shape terms are $z$-scored within
-the region. Every term corresponds to something a pathologist grades: nuclear enlargement and
-pleomorphism are two of the three components of the Nottingham grade, aspect ratio separates
-elongated stromal nuclei from rounder tumour nuclei, and convexity is low for the notched
-nuclei of high-grade carcinoma.
+Fourth, each nucleus becomes a node. Its feature is a $13$-dimensional morphometric descriptor
+built entirely from the HoVer-Net output: the centroid (2), a one-hot encoding of the six
+PanNuke classes (6), the type confidence (1), and four shape terms, namely log nuclear area,
+log perimeter, bounding-box aspect ratio and convexity (4). The centroid and the shape terms
+are $z$-scored within the region. Every term corresponds to something a pathologist grades.
+Nuclear enlargement and pleomorphism are two of the three components of the Nottingham grade.
+Aspect ratio separates elongated stromal nuclei from rounder tumour nuclei. Convexity is low
+for the notched nuclei of high-grade carcinoma.
 
-\paragraph{Edges.}
-Edges are derived from the centroid coordinates by Delaunay triangulation, which connects
-nuclei whose Voronoi cells are adjacent. One graph spans the whole region, running straight
-across the boundaries of the sixteen tiles seen by the image branch. The rule requires no
-scale parameter, and its degree statistics are unchanged across cohorts whose nuclear density
-is not: the mean degree is 5.97 in TCGA, UCH and CPTAC-BRCA alike, although a UCH region holds
-a third fewer nuclei than a TCGA region of the same area.
+Fifth, the nodes are joined into edges. Edges are derived from the centroid coordinates by
+Delaunay triangulation, which connects nuclei whose Voronoi cells are adjacent. One graph spans
+the whole region, running straight across the boundaries of the sixteen tiles seen by the image
+branch. The rule requires no scale parameter, and its degree statistics are unchanged across
+cohorts whose nuclear density is not. The mean degree is 5.97 in TCGA, UCH and CPTAC-BRCA
+alike, although a UCH region holds a third fewer nuclei than a TCGA region of the same area.
 
 \subsection{Dual-Branch Architecture}
 \label{sec:dual-branch-architecture}
 
-\paragraph{Graph branch.}
-The region graph is processed by a graph convolutional network (GCN) \citep{kipf2017} of
-$L=3$ layers and width $d_g=128$, each layer followed by batch normalisation, ReLU and dropout.
-Node embeddings $h_i$ are pooled by concatenating their mean and element-wise maximum and
-projecting back to $d_g$,
+The model has five components, and the first two run in parallel over the same region.
+
+First, the graph branch. The region graph is processed by a graph convolutional network (GCN)
+\citep{kipf2017} of $L=3$ layers and width $d_g=128$, each layer followed by batch
+normalisation, ReLU and dropout. Node embeddings $h_i$ are pooled by concatenating their mean
+and element-wise maximum and projecting back to $d_g$,
 \begin{equation}
 \label{eq:region-readout}
 z^{g}_{r} = \mathrm{LayerNorm}\!\left( \mathrm{ReLU}\!\left( W \left[ \tfrac{1}{|V_r|}
 \textstyle\sum_{i \in V_r} h_i \;\big\|\; \max_{i \in V_r} h_i \right] \right) \right),
 \end{equation}
-where $V_r$ is the node set of region $r$. The readout retains both the typical nucleus and
-the most extreme one, since a single highly abnormal nucleus can be diagnostically decisive.
+where $V_r$ is the node set of region $r$. The readout retains both the typical nucleus and the
+most extreme one, since a single highly abnormal nucleus can be diagnostically decisive.
 
-\paragraph{Image branch.}
-The same region is divided into a $4 \times 4$ grid of 1024-pixel tiles. Because UNI2-h
-\citep{chen2024} expects roughly 224-pixel inputs and downsampling a 1024-pixel tile that far
-would blur away cell-level detail, each tile is further divided into a $4 \times 4$ grid of
-256-pixel views, each view is resized and embedded by the frozen encoder (class token
-concatenated with the mean patch token, 3072-d), and the sixteen view embeddings are averaged.
-Each tile vector is projected to 128 dimensions by LayerNorm, a linear map, ReLU and dropout,
-and the sixteen tiles are pooled by gated attention \citep{ilse2018} and normalised, giving
-$z^{u}_{r}$. The encoder is frozen throughout: the question is what the graph adds on top of a
-strong image representation, and that comparison is only clean if the image representation
-cannot co-adapt to the graph branch.
+Second, the image branch. The same region is divided into a $4 \times 4$ grid of 1024-pixel
+tiles. UNI2-h \citep{chen2024} expects roughly 224-pixel inputs, and downsampling a 1024-pixel
+tile that far would blur away cell-level detail. Each tile is therefore divided again into a
+$4 \times 4$ grid of 256-pixel views. Each view is resized and embedded by the frozen encoder,
+taking the class token concatenated with the mean patch token (3072-d), and the sixteen view
+embeddings are averaged. Each tile vector is projected to 128 dimensions by LayerNorm, a linear
+map, ReLU and dropout. The sixteen tiles are then pooled by gated attention \citep{ilse2018}
+and normalised, giving $z^{u}_{r}$. The encoder is frozen throughout. The question is what the
+graph adds on top of a strong image representation, and that comparison is only clean if the
+image representation cannot co-adapt to the graph branch.
 
-\paragraph{Gated fusion.}
-The two branches are combined at region level, before slide aggregation, by a single learned
-scalar that scales the image branch against the normalised graph branch,
+Third, the two branches are fused at region level, before slide aggregation, by a single
+learned scalar that scales the image branch against the normalised graph branch,
 \begin{equation}
 \label{eq:fusion}
 z_{r} = \left[\, g \cdot z^{u}_{r} \;\big\|\; z^{g}_{r} \,\right],
 \end{equation}
-where $g$ is initialised at 1 and learned with the rest of the network. Because both branch
-outputs are layer-normalised, $g$ is directly interpretable as the relative weight of the image
-branch: $g>1$ means the image branch dominates, $g<1$ the cell graph, and we report it as a
+where $g$ is initialised at 1 and learned with the rest of the network. Both branch outputs are
+layer-normalised, so $g$ is directly interpretable as the relative weight of the image branch.
+A value $g>1$ means the image branch dominates and $g<1$ the cell graph, and we report it as a
 result.
 
-\paragraph{Region attention MIL.}
-The fused region vectors $\{z_r\}_{r=1}^{N}$ of a slide are reduced to a single slide vector by
-gated attention pooling \citep{ilse2018},
+Fourth, the regions are aggregated. The fused region vectors $\{z_r\}_{r=1}^{N}$ of a slide are
+reduced to a single slide vector by gated attention pooling \citep{ilse2018},
 \begin{equation}
 \label{eq:abmil}
 z_{S} = \sum_{r} a_{r} z_{r}, \qquad
 a_{r} = \frac{\exp\!\left( w^{\top} \left( \tanh(V z_{r}) \odot \sigma(U z_{r}) \right) \right)}
 {\sum_{q} \exp\!\left( w^{\top} \left( \tanh(V z_{q}) \odot \sigma(U z_{q}) \right) \right)},
 \end{equation}
-where $\sigma$ is the logistic sigmoid, so that the weights $a_r$ can be read directly as
-region importance and inspected against the morphology of the regions they select.
+where $\sigma$ is the logistic sigmoid. The weights $a_r$ can be read directly as region
+importance, and inspected against the morphology of the regions they select.
 
-\paragraph{Prediction head and loss.}
-The slide vector passes through LayerNorm, a linear layer of width 64, ReLU and dropout into a
-single logit. One model is trained per target (binarised RS, PR status, HER2 status) with a
-class-weighted binary cross-entropy,
+Fifth, the head produces the prediction. The slide vector passes through LayerNorm, a linear
+layer of width 64, ReLU and dropout into a single logit. One model is trained per target
+(binarised RS, PR status, HER2 status) with a class-weighted binary cross-entropy,
 \begin{equation}
 \label{eq:loss}
 \mathcal{L} = -\frac{1}{|B|} \sum_{S \in B} \Big[ \omega\, y_S \log \hat{p}_S
@@ -363,22 +348,23 @@ where $n_{+}$ and $n_{-}$ count the positive and negative training slides. Predi
 receptor states with the same architecture is not an auxiliary exercise. The recurrence score
 is itself a weighted combination of a HER2 group and an oestrogen group
 (\equationref{eq:rs}), so a model that recovers the receptor states from morphology is
-recovering the constituents of the quantity it is asked to predict, and the three targets give
+recovering the constituents of the quantity it is asked to predict. The three targets give
 three views of the same question of where the signal resides. Two ablations drop one branch
-from \equationref{eq:fusion}: \emph{image-only} and \emph{graph-only}.
+from \equationref{eq:fusion}, namely \emph{image-only} and \emph{graph-only}.
 
 \subsection{Region Budget Protocol}
 \label{sec:region-sampling-protocol}
 
-The budget $N \in \{2, 4, 8, 16\}$ is the quantity we vary, which corresponds to roughly
-2--16\,mm$^2$ of tissue per slide. $N=2$ matches the segmentation budget of a conventional
-32-patch pipeline ($2 \times 16$ tiles of 1024 pixels). Region draws are nested: the windows are
-taken by a greedy pass over the same seeded shuffle, so the first $k$ regions of a 16-region
-draw are exactly the $k$-region draw, and every larger budget adds tissue to the smaller one
-instead of replacing it. All other components are held fixed while $N$ is swept, so the
-resulting curve isolates the dependence on coverage. Slides with little tissue contribute fewer
-regions: at $N=16$ a TCGA slide holds 15.8 regions on average, and 1,047 of 1,096 slides reach
-the full sixteen. All regions of a slide are used in training and inference.
+The budget $N \in \{2, 4, 8, 16\}$ is the quantity we vary. It corresponds to roughly
+2--16\,mm$^2$ of tissue per slide. The smallest setting is a deliberate anchor: $N=2$ matches
+the segmentation budget of a conventional 32-patch pipeline ($2 \times 16$ tiles of 1024
+pixels). Region draws are nested. The windows are taken by a greedy pass over the same seeded
+shuffle, so the first $k$ regions of a 16-region draw are exactly the $k$-region draw, and
+every larger budget adds tissue to the smaller one instead of replacing it. All other
+components are held fixed while $N$ is swept, so the resulting curve isolates the dependence on
+coverage. Slides with little tissue contribute fewer regions. At $N=16$ a TCGA slide holds 15.8
+regions on average, and 1,047 of 1,096 slides reach the full sixteen. All regions of a slide
+are used in training and inference.
 
 \section{Experiments and Results}
 \label{sec:experiments}
