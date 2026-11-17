@@ -47,116 +47,153 @@
 \section{Introduction}
 \label{sec:introduction}
 
-Most breast cancers are detected at an early stage and are hormone receptor-positive and
-human epidermal growth factor receptor 2-negative (HR+/HER2$-$), and for these patients the central treatment question is
-whether to add chemotherapy to endocrine therapy. Only a minority derive benefit, so
-multi-gene assays were developed to estimate recurrence risk from tumour gene expression,
-of which the 21-gene recurrence score (RS) is the most widely used
-\citep{paik2004, sparano2018}. The assay is informative but expensive: it costs several
-thousand pounds per patient, consumes tumour tissue, and returns a result only one to two
-weeks after the haematoxylin and eosin (H\&E) slide has already been reviewed by a
-pathologist. A model that estimates the RS directly from the H\&E slide would therefore not
-replace the assay, but could triage which patients are sent for genomic testing at no
-additional tissue or turnaround cost. The task is plausible because the score is dominated
-by proliferation and oestrogen-signalling gene groups, and both leave visible traces in
-nuclear morphology and tissue architecture \citep{paik2004, elston1991}. Molecular readouts
-have indeed been recovered from H\&E in several settings, including driver mutations
+Most breast cancers are found at an early stage, they are also hormone receptor-positive and
+human epidermal growth factor receptor 2-negative (HR+/HER2$-$). These patients have surgery
+and then endocrine therapy. The remaining question is whether to add chemotherapy. Only a
+minority of them benefit from it, and the rest take on its side effects for nothing. Multi-gene
+assays were therefore built to estimate the risk of recurrence from tumour gene expression. The
+most widely used one is the 21-gene recurrence score (RS) \citep{paik2004, sparano2018}. The
+assay works, but it is costly, which takes several thousand pounds per patient. It consumes
+tumour tissue, of which result also arrives one to two weeks after a pathologist has already read
+the haematoxylin and eosin (H\&E) slide. A model that predicts the RS from that slide would
+not replace the assay, but it could instead triage which patients are sent for genomic testing,
+and it would cost no extra tissue and no extra waiting. This is possible because two gene
+groups dominate the score, namely proliferation and oestrogen signalling, which leave visible
+traces in nuclear shape and in tissue architecture \citep{paik2004, elston1991}. These molecular
+readouts have already been recovered from H\&E before. Examples include driver mutations
 \citep{coudray2018}, microsatellite instability \citep{kather2019} and bulk expression
-\citep{schmauch2020}, and specifically for the RS by hand-crafted nuclear shape features
-\citep{whitney2018} and by deep learning \citep{howard2024}.
+\citep{schmauch2020}. For the RS itself, hand crafted nuclear shape features
+\citep{whitney2018} and deep learning \citep{howard2024} have both been tried.
 
-Predicting a slide-level label from a whole-slide image (WSI) is constrained first by size.
-A slide scanned at $40\times$ spans on the order of $10^5 \times 10^5$ pixels and carries a
-single label that belongs to no particular region, which makes multiple instance learning
-(MIL) the standard formulation: the slide is treated as a bag of patches, each patch is
-encoded independently, and a permutation-invariant pooling function produces the slide
-representation \citep{dietterich1997, ilse2018, campanella2019}. Within this formulation the
-patch encoder has been progressively strengthened, moving from ImageNet-pretrained
-convolutional networks \citep{he2016, lu2021} to self-supervised pathology encoders and then
-to pathology foundation models trained on $10^5$--$10^6$ slides \citep{chen2024, filiot2023}.
-The patch budget, however, has not been revisited with the same care. Representative
-pipelines tile the tissue exhaustively \citep{campanella2019, lu2021} or sample on the order
-of $10^3$--$10^4$ tiles per slide \citep{courtiol2018, wulczyn2020}, and because both compute
-and memory scale with the number of patches, this choice dominates the cost of the method.
+Predicting tasks from a whole-slide image (WSI) runs first into size. A slide scanned at
+$40\times$ spans on the order of $10^5 \times 10^5$ pixels and it also carries a single label,
+and that label belongs to no particular region. Multiple instance learning (MIL) is the
+standard answer to this. First, the slide becomes a bag of patches and each patch is encoded on its own.
+A permutation invariant pooling function then turns the bag into one slide representation
+\citep{dietterich1997, ilse2018, campanella2019}. The patch encoder has improved steadily
+inside this formulation. It moved from ImageNet-pretrained convolutional networks
+\citep{he2016, lu2021} to self-supervised pathology encoders, and then to foundation models
+trained on $10^5$--$10^6$ slides \citep{chen2024, filiot2023}. The patch budget has not had
+the same attention. Some pipelines tile the tissue exhaustively \citep{campanella2019, lu2021}.
+Others sample $10^3$--$10^4$ tiles per slide \citep{courtiol2018, wulczyn2020}. 
 
-A second limitation is representational. Pooling over patch embeddings discards the spatial
-arrangement of the patches, and a patch embedding itself summarises local texture rather
-than the individual cells and their relationships \citep{ilse2018, pati2022}. Graph neural
-networks (GNNs) were introduced into computational pathology to restore this structure. One
-family treats patches as nodes connected by spatial adjacency, as in SlideGraph+
-\citep{lu2022} and Patch-GCN \citep{chen2021}; another defines nodes at the level of
-individual nuclei, each carrying a morphometric descriptor and connected to the nuclei near
-it, so that tissue architecture is read directly instead of being inferred from texture
-\citep{zhou2019, pati2022}. Cell-level graphs are attractive for the present task because the
-quantities a pathologist grades, such as nuclear size, chromatin density, crowding and
-tubule formation, are explicit properties of the graph rather than latent directions in an
-embedding.
+A second limit is representation of molecular functions within the image. Pooling over patch embeddings throws away where the
+patches were. Therefore, a patch embedding also describes local texture rather than the individual cells
+and how they relate \citep{ilse2018, pati2022}. Graph neural networks (GNNs) were brought into
+computational pathology to put this structure back. They are used at two granularities. In the
+first, patches are the nodes and spatial adjacency gives the edges, as in SlideGraph+
+\citep{lu2022} and Patch-GCN \citep{chen2021}. Second, each segmented nucleus become a
+node and it carries a morphometric descriptor, which is joined to the nuclei near it
+\citep{zhou2019, pati2022}. The model then reads tissue architecture directly instead of
+inferring it from texture. A pathologist grades nuclear size, chromatin
+density, crowding and tubule formation, and in a cell graph these are explicit properties
+rather than latent directions in an embedding.
 
-In this work we combine the two views and ask how much tissue a model actually needs to see.
-Each slide is reduced to a small number $N$ of $1 \times 1$\,mm tissue regions ($4096$ pixels
-at $0.25\,\mu$m/px). Within every region, nuclei segmented by HoVer-Net \citep{graham2019}
-form the nodes of a single cell graph that spans the whole region, with morphometric
-descriptors as node features, and the graph embedding is fused through a learned gate with
-frozen UNI2-h embeddings of the sixteen tiles that make up the region before the region
-vectors are aggregated to the slide. Holding the architecture fixed, we vary $N$ from 2 to 16
-and evaluate on The Cancer Genome Atlas (TCGA) and on two external cohorts. Prediction of the
-recurrence score saturates at four regions, about $4\,\mathrm{mm}^2$ of tissue per slide and
-far below the budgets used in the literature, so the signal relevant to the RS is not limited
-by spatial coverage. This reframes the design question from how much of the slide to process
-to which morphological properties carry the signal, and we address the second question by
-relating graph morphology and cell-type composition to receptor status and to the recurrence
-score.
+We combine the two views, and we ask how much tissue a model actually needs to see. Each slide
+is reduced to a small number of pathches $N$ of tissue regions of $1 \times 1$\,mm ($4096$ pixels at
+$0.25\,\mu$m/px). HoVer-Net \citep{graham2019} segments the nuclei inside a region. Those
+nuclei form one cell graph that spans the whole region, with morphometric descriptors as node
+features. The region is also split into sixteen tiles, and a frozen UNI2-h encoder embeds
+each one. A learned gate fuses the graph embedding with those tile embeddings, and the region
+vectors are then aggregated to the slide. We hold the architecture fixed and vary $N$ from 2
+to 16. We evaluate on The Cancer Genome Atlas (TCGA) and on two external cohorts. RS prediction
+saturates at small area, which is about $4\,\mathrm{mm}^2$ of tissue per slide, far below the
+budgets used in the literature. From this, we found that the signal that matters for the RS is therefore not limited by
+spatial coverage. It is no longer how much of the slide to
+process, but which morphological properties carry the signal. Therefore, we address the second question
+by relating graph morphology and cell-type composition to receptor status and to the
+recurrence score.
 
 Our contributions are as follows.
 \begin{itemize}
-\item A region-level dual-branch model that fuses a cell graph built over a whole
-  $1\,\mathrm{mm}^2$ region with frozen UNI2-h tile embeddings through a learned gate,
-  followed by attention-based MIL over regions, applied to the binarised RS and to
-  progesterone receptor (PR) and HER2 status.
+\item A region level dual branch model is designed with gated module to reflect both morphological features' relation and spatial feature of the image. 
 \item A controlled study of the region budget, with $N \in \{2,4,8,16\}$ nested regions per
-  slide, under a patient-level five-fold protocol on TCGA and on two external cohorts with
-  clinically assayed and RNA-derived scores. RS prediction saturates at $N=4$, whereas receptor
-  status prediction keeps improving up to $N=16$.
+  slide was conducted. 
 \item An analysis of which graph morphology features and cell types are associated with
-  HER2/PR status and with the recurrence score, identifying where the predictive signal
-  resides rather than only how much tissue is required to find it.
+  HER2/PR status and with the recurrence score was conducted to identify where the predictive signal
+  resides, not only how much tissue is needed to find it.
 \end{itemize}
-
 \section{Related Work}
 \label{sec:related-work}
 
-\paragraph{Whole-slide image classification.}
-A slide scanned at $40\times$ spans on the order of $10^5 \times 10^5$ pixels and carries one
-label that belongs to no particular region, so slide-level prediction is posed as multiple
-instance learning: the slide becomes a bag of patches, an encoder embeds each patch
-independently, and a permutation-invariant pooling function reduces the bag to a slide
-representation \citep{dietterich1997, ilse2018}. Max-pooling with a recurrent aggregator
-scaled this to clinical cohorts \citep{campanella2019}, gated attention pooling made the
-aggregation learnable and exposed per-patch weights \citep{ilse2018}, and CLAM added
-instance-level clustering constraints \citep{lu2021}. The encoder has been strengthened in
-parallel, from ImageNet-pretrained convolutional networks \citep{he2016}, which capture local
-texture but transfer poorly across stain and scanner variation \citep{tellez2019}, to
-self-supervised pathology encoders and then to foundation models trained on $10^5$--$10^6$
-slides such as UNI \citep{chen2024} and Phikon \citep{filiot2023}. The patch budget has
-received less scrutiny than the encoder: exhaustive tiling \citep{campanella2019, lu2021} and
-sampling of $10^3$--$10^4$ tiles per slide \citep{courtiol2018, wulczyn2020} are both routine,
-and since compute and memory scale with the number of patches, it is this choice rather than
-the encoder that dominates the cost of running such a model.
+\paragraph{Nuclear segmentation: HoVer-Net.}
+HoVer-Net \citep{graham2019} describes individual nuclei in histopathology image. It is consisted of a single encoder with three
+decoder branches. One branch segments nuclear pixels, and a second regresses the horizontal and
+vertical distances from each pixel to the centre of mass of its nucleus, which lets
+the model split nuclei that touch. Lastly, a third assigns each instance a type. We use the weights
+trained on PanNuke \citep{gamper2020}, a dataset of 205,343 labelled nuclei drawn from 19
+tissue types and annotated into five classes: neoplastic, non-neoplastic epithelial,
+inflammatory, connective or soft tissue, and dead. For comparison, the dataset used in the
+original HoVer-Net paper held roughly 24,000 labelled nuclei from a single tissue type, so the
+PanNuke weights transfer far better across organs. The output per nucleus is a contour, a
+centroid, a class and a confidence.  Cell graphs in pathology are commonly built on them, as in CGC-Net \citep{zhou2019} and
+HACT-Net \citep{pati2022}.
+
+\paragraph{Patch encoding: UNI2-h.}
+UNI \citep{chen2024} describes whole patches instead of single cells. It is a vision
+transformer trained with DINOv2 \citep{oquab2024}, so no labels are used. The model learns
+tissue features in two ways. It matches different views of the same image, and it fills in
+masked regions from their surroundings. UNI2-h, the variant we use, is a ViT-H/14 of roughly
+681M parameters. It was trained on more than 200 million patches from over 350,000 slides. Its
+pretraining is documented not to include TCGA, which keeps our TCGA evaluation uncontaminated.
+In an independent benchmark it ranked near the top across slide and patch level tasks
+\citep{campanella2025}. The output is one embedding vector per patch. Such frozen embeddings
+now serve as the instance features in most MIL pipelines \citep{lu2021, filiot2023}. 
+
+\paragraph{Super-resolution: Swin2SR.}
+Our cohorts are not scanned at the same magnification, and HoVer-Net is sensitive to this.
+Nuclei that touch cannot be separated when they occupy too few pixels, which force us to upsample
+the lower-magnification cohort before segmentation, using Swin2SR \citep{conde2022}. Swin2SR
+is a transformer built on Swin V2 blocks \citep{liu2022}. It computes self-attention inside
+local windows, and it shifts those windows between consecutive layers. This captures context
+across windows while keeping the cost linear in the number of pixels. The $\times 4$ variant
+we use is trained on DF2K, a collection of natural images, with bicubically downsampled inputs
+and an $\ell_1$ pixel loss. However, it is therefore a general-purpose model and has seen no
+histopathology. That turns out to be acceptable in this paper, \citet{juhong2023} report that
+transformer-based super-resolution transfers to H\&E without retraining, at only a modest
+cost in downstream segmentation. 
+
+\paragraph{Message passing over cell graphs.}
+A GNN updates each node from its neighbours, so the three operators we compare differ only in
+how a node weights them. We write $h^{(l)}_i$ for the embedding of node $i$ at layer $l$ and
+$\mathcal{N}(i)$ for its neighbourhood. GCN \citep{kipf2017} applies a symmetric normalised
+convolution,
+\begin{equation}
+\label{eq:gcn}
+h^{(l+1)}_{i} = \sigma\!\left( \sum_{j \in \mathcal{N}(i) \cup \{i\}}
+\frac{W^{(l)} h^{(l)}_{j}}{\sqrt{\hat{d}_i \hat{d}_j}} \right),
+\end{equation}
+where $\hat{d}_i$ is the degree of node $i$ including its self-loop. The normalising term
+damps the degree signal without removing it. GraphSAGE \citep{hamilton2017} averages the
+neighbours and combines that average with the node's own state through separate weights,
+\begin{equation}
+\label{eq:sage}
+h^{(l+1)}_{i} = \sigma\!\left( W^{(l)}_{1} h^{(l)}_{i} + W^{(l)}_{2} \cdot
+\frac{1}{|\mathcal{N}(i)|} \sum_{j \in \mathcal{N}(i)} h^{(l)}_{j} \right).
+\end{equation}
+The mean removes degree entirely, so crowding can reach the representation only through which
+nodes are reachable. GIN \citep{xu2019} sums over the neighbours and then applies an MLP,
+\begin{equation}
+\label{eq:gin}
+h^{(l+1)}_{i} = \mathrm{MLP}^{(l)}\!\left( \left(1 + \epsilon^{(l)}\right) h^{(l)}_{i}
++ \sum_{j \in \mathcal{N}(i)} h^{(l)}_{j} \right).
+\end{equation}
+GIN is the only one of the three whose aggregation is not degree-normalised. The sum grows
+with the number of neighbours, so local density enters the representation directly. 
 
 \paragraph{Edge derivation in cell graphs.}
-With segmented nuclei as nodes, the edge rule determines which notion of neighbourhood the
-graph encodes. Delaunay triangulation joins nuclei whose Voronoi cells share a boundary, giving
-a connected planar graph that approximates physical cell contact, and it is the usual choice
-when the graph is meant to represent tissue architecture rather than mere proximity
-\citep{gunduz2004, lu2022}. Its decisive property for us is that it needs no scale parameter.
-A radius rule ties connectivity to a distance tuned to one cohort's nuclear spacing
-\citep{pati2022}, and a $k$-nearest-neighbour rule fixes $k$ in advance \citep{zhou2019}, whereas
-Delaunay adjacency is defined by the local arrangement of the nuclei themselves. The same rule
-therefore transfers unchanged between cohorts whose cellular density differs.
+The edge rule decides which notion of neighbourhood the
+graph encodes. Among various ways, delaunay triangulation joins nuclei whose Voronoi cells share a boundary. The
+result is a connected planar graph that approximates physical cell contact. It is the usual
+choice when the graph should represent tissue architecture rather than mere proximity
+\citep{gunduz2004, lu2022}. In this paper, its decisive property is that it needs no scale parameter.
+We also tested with other methods, A radius rule instead ties connectivity to a distance, and that distance is tuned to one
+cohort's nuclear spacing \citep{pati2022}. A $k$-nearest-neighbour rule fixes $k$ in advance
+\citep{zhou2019}. 
 
 \paragraph{Predicting the recurrence score from H\&E.}
-The 21-gene recurrence score summarises the expression of sixteen cancer-related genes,
-normalised against five reference genes and aggregated into four functional group scores
+The 21-gene recurrence score summarises the expression of sixteen cancer-related genes. These
+are normalised against five reference genes and aggregated into four functional group scores
 \citep{paik2004}. The unscaled score is a fixed weighted sum of those groups,
 \begin{equation}
 \label{eq:rs}
@@ -166,24 +203,20 @@ normalised against five reference genes and aggregated into four functional grou
 &+ 0.05\,\mathrm{CD68} - 0.08\,\mathrm{GSTM1} - 0.07\,\mathrm{BAG1},
 \end{split}
 \end{equation}
-where each term is the expression score of a gene group (ER: oestrogen receptor group;
-Prolif: proliferation group) or of a single gene, and which is then rescaled to the reported $0$--$100$ range as
-$\mathrm{RS} = \min\{100, \max\{0,\, 20(\mathrm{RS}_{u} - 6.7)\}\}$, with the HER2 and
-proliferation group scores thresholded from below before entering
-\equationref{eq:rs} \citep{paik2004}. The proliferation group carries the largest positive
-weight and the oestrogen group the only substantial negative one, which is what makes the
-score accessible from morphology at all: proliferation is visible as enlarged nuclei, dense
-chromatin, mitotic figures and crowding, while oestrogen signalling accompanies a
-differentiated, tubule-forming architecture with uniform nuclei \citep{elston1991}. Molecular
-readouts have accordingly been recovered from H\&E in several settings, including driver
-mutations \citep{coudray2018}, microsatellite instability \citep{kather2019} and bulk
-expression \citep{schmauch2020}. For the recurrence score specifically,
+where each term is the expression score of a gene group (ER: oestrogen receptor group; Prolif:
+proliferation group) or of a single gene. The HER2 and proliferation group scores are
+thresholded from below before they enter \equationref{eq:rs}. The result is then rescaled to
+the reported $0$--$100$ range as
+$\mathrm{RS} = \min\{100, \max\{0,\, 20(\mathrm{RS}_{u} - 6.7)\}\}$ \citep{paik2004}. In this equation, the proliferation group carries the largest positive weight, and the
+oestrogen group carries the only substantial negative one. This is what makes the score
+accessible from morphology at all. Proliferation is visible as enlarged nuclei, dense
+chromatin, mitotic figures and crowding. Oestrogen signalling instead accompanies a
+differentiated, tubule-forming architecture with uniform nuclei \citep{elston1991}.  Thanks to these properties, molecular
+readouts have accordingly been recovered from H\&E in several settings. Two previous studies address the recurrence score directly.
 \citet{whitney2018} showed that hand-crafted nuclear shape features separate low- from
-high-risk categories, and \citet{howard2024} reported an area under the receiver operating
+high-risk categories. \citet{howard2024} reported an area under the receiver operating
 characteristic curve (AUROC) of 0.797 on the TCGA breast cancer cohort (TCGA-BRCA) with
-patch-based deep learning. Both establish that the signal exists without localising it: the
-former fixes the morphological vocabulary in advance, the latter leaves the relevant structure
-implicit in a patch embedding.
+patch-based deep learning. 
 
 \section{Methods}
 \label{sec:methods}
