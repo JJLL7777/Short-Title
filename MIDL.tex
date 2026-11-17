@@ -473,11 +473,12 @@ linearly with $N$.
   {tab:tcga}
   {\caption{Internal five-fold AUROC (\%, mean $\pm$ SD over folds) on TCGA-BRCA as the number
   of regions per slide $N$ grows. Image: image branch only; Graph: graph branch only; Gated:
-  both, fused by \equationref{eq:fusion}.}}
+  both, fused by \equationref{eq:fusion}. Task: RS, high versus low recurrence score; PR and HER2,
+  positive versus negative receptor status.}}
   {\small
   \begin{tabular}{llcccc}
   \hline
-  Target & Model & $N=2$ & $N=4$ & $N=8$ & $N=16$ \\
+  Task & Model & $N=2$ & $N=4$ & $N=8$ & $N=16$ \\
   \hline
   RS   & Image & 84.2 $\pm$ 4.0 & 86.1 $\pm$ 4.1 & 85.9 $\pm$ 3.8 & 86.1 $\pm$ 4.7 \\
        & Graph & 76.2 $\pm$ 3.5 & 78.7 $\pm$ 5.9 & 80.4 $\pm$ 3.2 & 79.7 $\pm$ 5.0 \\
@@ -498,12 +499,13 @@ linearly with $N$.
 \floatconts
   {tab:external}
   {\caption{External patient-level AUROC (\%) [95\% bootstrap CI] of the five-fold ensemble
-  trained on TCGA, without retraining. CPTAC-BRCA has an RNA-derived RS only. UCH HER2 has nine
+  trained on TCGA, without retraining. Numbers in parentheses: patients / positive patients.
+  CPTAC-BRCA has an RNA-derived RS only. UCH HER2 has nine
   positive patients and is reported for completeness.}}
   {\small
   \begin{tabular}{llcccc}
   \hline
-  Cohort / target & Model & $N=2$ & $N=4$ & $N=8$ & $N=16$ \\
+  Cohort / task & Model & $N=2$ & $N=4$ & $N=8$ & $N=16$ \\
   \hline
   CPTAC RS   & Image & 78.0 [66, 88] & 81.3 [71, 90] & 81.2 [71, 90] & 81.9 [72, 90] \\
   (108 / 34) & Graph & 74.0 [64, 84] & 76.0 [65, 86] & 74.0 [63, 84] & 72.9 [62, 83] \\
@@ -526,38 +528,6 @@ linearly with $N$.
 
 % TODO: fold-wise paired Delta-AUROC (gated - image, N vs N=2) with bootstrap CI
 %       (code/model/region_deltas.py) to back the saturation claim statistically
-
-\subsection{Contiguous Regions or Scattered Patches?}
-\label{sec:regions-vs-patches}
-
-\begin{table}[htbp]
-\floatconts
-  {tab:patch-region}
-  {\caption{Area-matched comparison on TCGA (five-fold AUROC, \%, mean $\pm$ SD): 32 scattered
-  $1024$-pixel patches versus $N=2$ contiguous $4096$-pixel regions, both 2.1\,mm$^2$ per slide.
-  Patches are taken at a uniform stride over the tissue grid ($\geq 50\%$ tissue; 31.3 per slide
-  on average), each with its own HoVer-Net run, Delaunay graph and UNI2-h embedding; model,
-  splits and seeds are otherwise identical.
-  The $N=16$ column (16.8\,mm$^2$) is repeated from \tableref{tab:tcga} for reference.}}
-  {\small
-  \begin{tabular}{llccc}
-  \hline
-  Target & Model & 32 patches & $N=2$ regions & $N=16$ regions \\
-  \hline
-  RS   & Image & 86.3 $\pm$ 4.0 & 84.2 $\pm$ 4.0 & 86.1 $\pm$ 4.7 \\
-       & Graph & 76.7 $\pm$ 3.8 & 76.2 $\pm$ 3.5 & 79.7 $\pm$ 5.0 \\
-       & Gated & 85.8 $\pm$ 4.5 & 85.1 $\pm$ 3.9 & 85.5 $\pm$ 3.1 \\
-  \hline
-  PR   & Image & 80.6 $\pm$ 1.9 & 76.8 $\pm$ 3.6 & 81.3 $\pm$ 2.6 \\
-       & Graph & 69.2 $\pm$ 2.3 & 65.5 $\pm$ 3.0 & 73.1 $\pm$ 4.0 \\
-       & Gated & 79.4 $\pm$ 1.5 & 76.8 $\pm$ 3.3 & 79.2 $\pm$ 2.1 \\
-  \hline
-  HER2 & Image & 67.8 $\pm$ 4.8 & 69.9 $\pm$ 2.4 & 73.1 $\pm$ 2.6 \\
-       & Graph & 58.5 $\pm$ 7.4 & 62.1 $\pm$ 3.5 & 63.8 $\pm$ 5.7 \\
-       & Gated & 71.4 $\pm$ 5.0 & 70.3 $\pm$ 4.6 & 74.0 $\pm$ 2.4 \\
-  \hline
-  \end{tabular}}
-\end{table}
 
 \subsection{Where Does the Signal Live?}
 \label{sec:where-signal-lives}
