@@ -352,7 +352,7 @@ layer-normalised, so $g$ is directly interpretable as the relative weight of the
 A value $g>1$ means the image branch dominates and $g<1$ the cell graph, and we report it as a
 result.
 
-Fourth, the regions are aggregated. The fused region vectors $\{z_r\}_{r=1}^{N}$ of a slide are
+Fourth, the regions are aggregated with attention. The fused region vectors $\{z_r\}_{r=1}^{N}$ of a slide are
 reduced to a single slide vector by gated attention pooling \citep{ilse2018},
 \begin{equation}
 \label{eq:abmil}
@@ -371,13 +371,7 @@ layer of width 64, ReLU and dropout into a single logit. One model is trained pe
 \mathcal{L} = -\frac{1}{|B|} \sum_{S \in B} \Big[ \omega\, y_S \log \hat{p}_S
 + (1 - y_S) \log (1 - \hat{p}_S) \Big], \qquad \omega = \frac{n_{-}}{n_{+}},
 \end{equation}
-where $n_{+}$ and $n_{-}$ count the positive and negative training slides. Predicting the
-receptor states with the same architecture is not an auxiliary exercise. The recurrence score
-is itself a weighted combination of a HER2 group and an oestrogen group
-(\equationref{eq:rs}), so a model that recovers the receptor states from morphology is
-recovering the constituents of the quantity it is asked to predict. The three targets give
-three views of the same question of where the signal resides. Two ablations drop one branch
-from \equationref{eq:fusion}, namely \emph{image-only} and \emph{graph-only}.
+where $n_{+}$ and $n_{-}$ count the positive and negative training slides. 
 
 \subsection{Region Budget Protocol}
 \label{sec:region-sampling-protocol}
