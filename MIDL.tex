@@ -154,42 +154,29 @@ transformer-based super-resolution transfers to H\&E without retraining, at only
 cost in downstream segmentation. 
 
 \paragraph{Message passing over cell graphs.}
-A GNN updates each node from its neighbours, so the three operators we compare differ only in
-how a node weights them. We write $h^{(l)}_i$ for the embedding of node $i$ at layer $l$ and
-$\mathcal{N}(i)$ for its neighbourhood. GCN \citep{kipf2017} applies a symmetric normalised
-convolution,
+A graph neural network (GNN) updates each node from its neighbours. We write $h^{(l)}_i$ for the
+embedding of node $i$ at layer $l$ and $\mathcal{N}(i)$ for its neighbourhood. We use the graph
+convolutional network (GCN) \citep{kipf2017}, which applies a symmetric normalised convolution,
 \begin{equation}
 \label{eq:gcn}
 h^{(l+1)}_{i} = \sigma\!\left( \sum_{j \in \mathcal{N}(i) \cup \{i\}}
 \frac{W^{(l)} h^{(l)}_{j}}{\sqrt{\hat{d}_i \hat{d}_j}} \right),
 \end{equation}
 where $\hat{d}_i$ is the degree of node $i$ including its self-loop. The normalising term
-damps the degree signal without removing it. GraphSAGE \citep{hamilton2017} averages the
-neighbours and combines that average with the node's own state through separate weights,
-\begin{equation}
-\label{eq:sage}
-h^{(l+1)}_{i} = \sigma\!\left( W^{(l)}_{1} h^{(l)}_{i} + W^{(l)}_{2} \cdot
-\frac{1}{|\mathcal{N}(i)|} \sum_{j \in \mathcal{N}(i)} h^{(l)}_{j} \right).
-\end{equation}
-The mean removes degree entirely, so crowding can reach the representation only through which
-nodes are reachable. GIN \citep{xu2019} sums over the neighbours and then applies an MLP,
-\begin{equation}
-\label{eq:gin}
-h^{(l+1)}_{i} = \mathrm{MLP}^{(l)}\!\left( \left(1 + \epsilon^{(l)}\right) h^{(l)}_{i}
-+ \sum_{j \in \mathcal{N}(i)} h^{(l)}_{j} \right).
-\end{equation}
-GIN is the only one of the three whose aggregation is not degree-normalised. The sum grows
-with the number of neighbours, so local density enters the representation directly. 
+damps the degree signal without removing it, so a node is described mainly by the morphology
+of its neighbours rather than by how many it has. GCN is also the simplest and cheapest of the
+common operators, which matters when one graph holds several thousand nuclei.
 
 \paragraph{Edge derivation in cell graphs.}
-The edge rule decides which notion of neighbourhood the
-graph encodes. Among various ways, delaunay triangulation joins nuclei whose Voronoi cells share a boundary. The
-result is a connected planar graph that approximates physical cell contact. It is the usual
-choice when the graph should represent tissue architecture rather than mere proximity
-\citep{gunduz2004, lu2022}. In this paper, its decisive property is that it needs no scale parameter.
-We also tested with other methods, A radius rule instead ties connectivity to a distance, and that distance is tuned to one
-cohort's nuclear spacing \citep{pati2022}. A $k$-nearest-neighbour rule fixes $k$ in advance
-\citep{zhou2019}. 
+The edge rule decides which notion of neighbourhood the graph encodes. We use Delaunay
+triangulation, which joins nuclei whose Voronoi cells share a boundary. The result is a
+connected planar graph that approximates physical cell contact, and it is the usual choice when
+the graph should represent tissue architecture rather than mere proximity
+\citep{gunduz2004, lu2022}. Its decisive property here is that it needs no scale parameter.
+The common alternatives each fix one: a radius rule ties connectivity to a distance tuned to one
+cohort's nuclear spacing \citep{pati2022}, and a $k$-nearest-neighbour rule fixes $k$ in advance
+\citep{zhou2019}. Delaunay therefore transfers unchanged between cohorts whose cellular density
+differs.
 
 \paragraph{Predicting the recurrence score from H\&E.}
 The 21-gene recurrence score summarises the expression of sixteen cancer-related genes. These
