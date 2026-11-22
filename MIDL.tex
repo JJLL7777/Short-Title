@@ -469,10 +469,28 @@ GPU. The checkpoint with the best patient-level validation AUROC is evaluated on
 Graphs and tile embeddings are pre-computed, so training cost is dominated by the GNN and grows
 linearly with $N$.
 
-% TODO: wall-clock / memory per N (inference cost) for contribution 2
+\paragraph{Cost measurement.}
+The cost of a slide has two parts. Pre-processing (HoVer-Net segmentation and UNI2-h embedding of
+the sixteen tiles) is paid once per region; its throughput is taken from the extraction logs on
+an NVIDIA RTX 3090 Ti (HoVer-Net 32--51\,s and UNI2-h 2.5\,s per region). The model itself is
+timed on the same GPU for the gated configuration, on 120 TCGA slides that hold all sixteen
+regions, with three warm-up batches: training as end-to-end time per slide for AdamW steps on
+batches of four slides, including assembly of the graph batch, and inference one slide at a
+time. Peak memory is the maximum allocated CUDA memory. The GPU was shared with other jobs, so
+the model timings are indicative.
 
 \subsection{Does More Region Sampling Help?}
 \label{sec:more-region-sampling}
+
+% Figure: Dissertation/code/figures/latex/fig_auroc_vs_n.py
+\begin{figure}[htbp]
+\floatconts
+  {fig:auroc-vs-n}
+  {\caption{Internal TCGA AUROC as the number of regions per slide $N$ grows, for the image-only,
+  graph-only and gated models. Lines: mean over the five folds; bands: $\pm 1$ SD across folds.
+  The same numbers are given in \tableref{tab:tcga}.}}
+  {\includegraphics[width=\linewidth]{figures/fig_auroc_vs_n.pdf}}
+\end{figure}
 
 \begin{table}[htbp]
 \floatconts
@@ -558,46 +576,47 @@ linearly with $N$.
   \end{tabular}}
 \end{table}
 
+\begin{table}[htbp]
+\floatconts
+  {tab:cost}
+  {\caption{Cost per slide as a function of the region budget $N$ (gated model, RTX 3090 Ti).
+  Inference on a new slide: HoVer-Net and UNI2-h for $N$ regions (range from the extraction logs)
+  plus the model forward pass. Training: end-to-end time per slide for one AdamW step in batches of
+  four. Peak: maximum allocated CUDA memory. Model timings were taken on a shared GPU and are
+  indicative.}}
+  {\small
+  \begin{tabular}{lcccccc}
+  \hline
+   & & & \multicolumn{2}{c}{Inference} & \multicolumn{2}{c}{Training} \\
+  $N$ & Tissue (mm$^2$) & Nuclei & Total (min) & Model (ms) / Peak (GB) & ms & Peak (GB) \\
+  \hline
+  2  & 2.1  & 7,651  & 1.1--1.8  & 4.9 / 0.18 & 4.1  & 0.56 \\
+  4  & 4.2  & 15,394 & 2.3--3.6  & 3.1 / 0.32 & 5.1  & 1.16 \\
+  8  & 8.4  & 30,527 & 4.6--7.1  & 5.1 / 0.54 & 9.6  & 2.15 \\
+  16 & 16.8 & 59,533 & 9.1--14.2 & 9.8 / 1.01 & 18.7 & 4.07 \\
+  \hline
+  \end{tabular}}
+\end{table}
+
 % TODO: fold-wise paired Delta-AUROC (gated - image, N vs N=2) with bootstrap CI
 %       (code/model/region_deltas.py) to back the saturation claim statistically
 
 \subsection{Where Does the Signal Live?}
 \label{sec:where-signal-lives}
 
-\begin{table}[htbp]
+% Figure: Dissertation/code/figures/latex/fig_morph_heatmap.py (data: Results/tables/region_morphology.csv)
+\begin{figure}[htbp]
 \floatconts
-  {tab:morph}
+  {fig:morph}
   {\caption{Patient-level association of region morphology with the targets. Descriptors are
-  computed from the HoVer-Net output and the Delaunay graph of each $N=2$ region in physical
-  units, and averaged over the regions of a patient. $\rho$: Spearman
-  correlation with the continuous RS. AUROC: discrimination by the raw descriptor ($<50$: lower in
-  positive patients). $^{*}$\,$q<0.05$, $^{**}$\,$q<0.001$ (Benjamini--Hochberg within column).
-  TCGA $n$ = 1,038 / 986 / 843 patients; UCH $n$ = 416 / 499. UCH HER2 (9 positives) is omitted.}}
-  {\small
-  \begin{tabular}{lccc|cc}
-  \hline
-   & \multicolumn{3}{c|}{TCGA} & \multicolumn{2}{c}{UCH} \\
-  Descriptor & RS $\rho$ & PR AUROC & HER2 AUROC & RS $\rho$ & PR AUROC \\
-  \hline
-  Nuclei per mm$^2$          & $+0.23^{**}$ & $0.44^{*}$  & 0.47        & $+0.03$      & 0.50 \\
-  Neoplastic fraction        & $+0.19^{**}$ & $0.45^{*}$  & 0.49        & $+0.08$      & 0.47 \\
-  Inflammatory fraction      & $+0.07^{*}$  & $0.45^{*}$  & 0.56        & $+0.01$      & 0.48 \\
-  Connective fraction        & $-0.28^{**}$ & $0.60^{**}$ & 0.49        & $-0.11$      & 0.55 \\
-  Necrotic fraction          & $+0.21^{**}$ & $0.40^{**}$ & 0.53        & $+0.07$      & 0.51 \\
-  Non-neopl.\ epith.\ fraction & $-0.24^{**}$ & $0.58^{**}$ & 0.45      & $-0.10$      & 0.54 \\
-  \hline
-  Neopl.\ nuclear area       & $+0.03$      & 0.46        & 0.51        & $+0.06$      & 0.51 \\
-  Neopl.\ area CV            & $+0.47^{**}$ & $0.33^{**}$ & $0.61^{**}$ & $+0.21^{**}$ & 0.50 \\
-  Neopl.\ aspect ratio       & $+0.03$      & 0.51        & 0.53        & $-0.13^{*}$  & 0.49 \\
-  Neopl.\ convexity          & $-0.27^{**}$ & 0.54        & 0.46        & $-0.12$      & 0.47 \\
-  \hline
-  Delaunay side length       & $-0.14^{**}$ & 0.52        & 0.56        & $-0.01$      & 0.50 \\
-  Clustering coefficient     & $-0.06^{*}$  & 0.51        & 0.50        & $-0.11$      & 0.51 \\
-  Nuclei within 30\,$\mu$m   & $+0.13^{**}$ & 0.48        & 0.43        & $-0.04$      & 0.51 \\
-  Voronoi area CV            & $-0.15^{**}$ & $0.57^{**}$ & 0.47        & $-0.11$      & 0.55 \\
-  \hline
-  \end{tabular}}
-\end{table}
+  computed from the HoVer-Net output and the Delaunay graph of each $N=2$ region in physical units
+  and averaged over the regions of a patient. Cells give Spearman's $\rho$ with the continuous RS
+  or the AUROC of the raw descriptor for receptor status. Colour is a common signed scale, $\rho$
+  or $2(\mathrm{AUROC}-0.5)$: red, higher in high-RS or receptor-positive patients; blue, lower.
+  $^{*}$\,$q<0.05$, $^{**}$\,$q<0.001$ (Benjamini--Hochberg within column; bold). TCGA $n$ =
+  1,038 / 986 / 843 patients; UCH $n$ = 416 / 499. UCH HER2 (9 positives) is omitted.}}
+  {\includegraphics[width=0.85\linewidth]{figures/fig_morph_heatmap.pdf}}
+\end{figure}
 
 \section{Discussion}
 \label{sec:discussion}
