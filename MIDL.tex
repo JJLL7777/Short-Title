@@ -208,27 +208,12 @@ patch-based deep learning.
 \section{Methods}
 \label{sec:methods}
 
-% Figure: Dissertation/code/figures/latex/fig_pipeline_regions_server.py
-\begin{figure}[htbp]
-\floatconts
-  {fig:pipeline}
-  {\caption{Pipeline on one TCGA slide. (a)--(c) Tissue detection and the sixteen nested
-  regions, coloured by the smallest budget $N$ that includes them. (d) One $4096$-pixel region
-  with the $4 \times 4$ grid of tiles embedded by UNI2-h (box: zoom of (e)). (e) HoVer-Net
-  nuclei coloured by type (red neoplastic, blue inflammatory, green connective, orange
-  non-neoplastic epithelial). (f) The Delaunay cell graph spanning the whole region across tile
-  boundaries (dashed). Bottom: the dual-branch model.}}
-  {\includegraphics[width=0.8\linewidth]{figures/fig_pipeline.pdf}}
-\end{figure}
-
-The pipeline turns one gigapixel slide into one risk estimate, and it does so in two halves
-(\figureref{fig:pipeline}).
+The pipeline turns one gigapixel slide into one risk estimate, and it does so in two halves.
 The first half builds the input. A slide is reduced to $N$ tissue regions, those regions are
-brought to a common resolution by applying SwinSR, and their nuclei are segmented through Hover-Net, each nucleus is given a
-morphometric descriptor, and the nuclei of a region are joined into one cell graph by using delaunay graph method. 
-The second
-half is the model. A graph branch encodes the cell graph of a region by applying a GCN model, an image branch encodes
-the same region from its tiles with Uni2-h pre-trained encoder, a learned gate fuses the two, attention over regions reduces a
+brought to a common resolution, their nuclei are segmented, each nucleus is given a
+morphometric descriptor, and the nuclei of a region are joined into one cell graph. The second
+half is the model. A graph branch encodes the cell graph of a region, an image branch encodes
+the same region from its tiles, a learned gate fuses the two, attention over regions reduces a
 slide to one vector, and a head produces the prediction. \sectionref{sec:cell-graph-construction}
 covers the first half and \sectionref{sec:dual-branch-architecture} the second. The budget $N$
 is the one quantity we vary, and \sectionref{sec:region-sampling-protocol} describes how.
@@ -236,69 +221,63 @@ is the one quantity we vary, and \sectionref{sec:region-sampling-protocol} descr
 \subsection{Cell Graph Construction}
 \label{sec:cell-graph-construction}
 
-First, tissue is separated from background glass by Otsu thresholding of a
+First, regions are drawn. Tissue is separated from background glass by Otsu thresholding of a
 low-resolution level of the slide. Candidate windows of $4096 \times 4096$ level-0 pixels
 ($1.02$\,mm on a side) are laid on a half-window stride. Windows with a tissue fraction below
 0.6 are discarded, or below 0.3 if none survives, and $N$ non-overlapping windows are then
-drawn at random with a seed fixed per slide. 
+drawn at random with a seed fixed per slide. A region is the unit seen by both branches. It is
+large enough to contain glandular and stromal architecture, yet small enough for a single cell
+graph to cover it.
 
-Second, resolution is harmonised. The three datasets are scanned at different magnifications,
-and segmentation through Hover-Net is the step that is sensitive to this. A model trained to delineate nuclei at
-$40\times$ under-segments lower-magnification input, because touching nuclei occupy too few
-pixels to be separated. We therefore harmonise before segmentation , using
-the transformer-based super-resolution model Swin2SR \citep{conde2022}. Slides scanned at
-$20\times$ (51 TCGA slides and 144 of the 273 CPTAC-BRCA series) are cut at 2048 pixels and
-upsampled $\times 2$. The UCH cohort is distributed only as $299$-pixel tiles at
-$1.01\,\mu$m/px ($\approx 10\times$). For these, a region is formed from a $4 \times 4$ block
-of adjacent tiles that all contain tissue, stitched to 1196 pixels, centre-cropped to 1024
-pixels ($1.03$\,mm) and upsampled $\times 4$. Every region therefore enters segmentation with
-the same physical field and the same effective $0.25\,\mu$m/px. We also check that $\times 4$
-upsampling does not fabricate structure. We segment TCGA fields for which both a native
-$40\times$ scan and a super-resolved $10\times$ version exist, and we match detections by
-centroid proximity. Instance-level agreement reaches an F1 of 0.860 and cell-type accuracy
-0.887. The latter is the quantity that matters, since the node features and graph statistics
-depend on the population of nuclei rather than on any individual detection.
+Second, resolution is harmonised. The three cohorts are scanned at different magnifications,
+and HoVer-Net separates touching nuclei reliably only at the resolution it was trained for, so
+we bring every region to a common effective $0.25\,\mu$m/px with the transformer-based
+super-resolution model Swin2SR \citep{conde2022}. Slides scanned at $20\times$ (51 TCGA slides
+and 144 of the 273 CPTAC-BRCA series) are cut at 2048 pixels and upsampled $\times 2$. The UCH
+cohort is distributed only as $299$-pixel tiles at $\approx 10\times$, so a region is stitched
+from a $4 \times 4$ block of adjacent tissue tiles, centre-cropped to 1024 pixels and upsampled
+$\times 4$. Every region therefore enters segmentation with the same physical field of about
+$1\,\mathrm{mm}^{2}$ and the same effective resolution.
 
-Third, nuclei are segmented. Each region is passed through HoVer-Net \citep{graham2019}
-with PanNuke-pretrained weights, in tile mode with overlapping stitching, so that nuclei on
-internal tile boundaries are not cut. HoVer-Net regresses horizontal and vertical distance maps
-alongside the nuclear mask, which separates touching nuclei that a purely semantic model
-merges. A classification branch then assigns each instance one of six PanNuke classes:
-neoplastic, inflammatory, connective or soft tissue, necrotic, non-neoplastic epithelial, and
-an unlabelled background class. For every nucleus we retain the centroid, the polygonal
-contour, the axis-aligned bounding box, the predicted type and its confidence. A TCGA region
-contains 3,971 nuclei on average (median 3,855, interquartile range 2,286--5,198), against
-2,664 in UCH and 4,122 in CPTAC-BRCA (\figureref{fig:cohort-graphs}, top). Regions with too few
-nuclei to triangulate are background, yield no graph, and are discarded.
+To confirm that upsampling does not fabricate structure, we segment TCGA fields for which both
+a native $40\times$ scan and a super-resolved $10\times$ version exist, and match the detections
+by centroid proximity. The two agree closely in both nuclear outlines and cell-type assignment
+(\figureref{fig:sr-fidelity}, \tableref{tab:sr-fidelity}), and cell-type agreement is the
+quantity that matters, since the node features depend on the population of nuclei rather than
+on any individual detection.
 
-% Figure: Dissertation/code/figures/latex/fig_cohort_graphs.py
-\begin{figure}[htbp]
-\floatconts
-  {fig:cohort-graphs}
-  {\caption{HoVer-Net output and cell graphs in the three cohorts. One region per cohort, chosen
-  as the region whose nucleus count is closest to the cohort median, shown on the $192\,\mu$m
-  window with the most neoplastic nuclei. Top: nuclear contours coloured by HoVer-Net type.
-  Bottom: the Delaunay graph used for training, nodes coloured by type. Titles give the nucleus
-  count and the mean $\pm$ SD node degree of the whole region.}}
-  {\includegraphics[width=0.8\linewidth]{figures/fig_cohort_graphs.pdf}}
-\end{figure}
+Third, nuclei are segmented. Each $1.02$\,mm region is passed whole through HoVer-Net
+\citep{graham2019} with PanNuke-pretrained weights (tile mode with overlapping stitching, so
+that nuclei on internal boundaries are not cut), which returns for every nucleus a centroid, a
+polygonal contour, an axis-aligned bounding box, and one of six PanNuke cell types with its
+confidence. How many nuclei a region holds differs by cohort: a TCGA region contains 3,971 on
+average (median 3,855, interquartile range 2,286--5,198), against 4,122 in CPTAC-BRCA and
+2,664 in UCH (\figureref{fig:cohort-graphs}, top). Regions with too few nuclei to triangulate
+are background, yield no graph, and are discarded.
 
 Fourth, each nucleus becomes a node. Its feature is a $13$-dimensional morphometric descriptor
 built entirely from the HoVer-Net output: the centroid (2), a one-hot encoding of the six
 PanNuke classes (6), the type confidence (1), and four shape terms, namely log nuclear area,
 log perimeter, bounding-box aspect ratio and convexity (4). The centroid and the shape terms
-are $z$-scored within the region. Every term corresponds to something a pathologist grades.
-Nuclear enlargement and pleomorphism are two of the three components of the Nottingham grade.
-Aspect ratio separates elongated stromal nuclei from rounder tumour nuclei. Convexity is low
-for the notched nuclei of high-grade carcinoma.
+are $z$-scored within the region.
 
 Fifth, the nodes are joined into edges. Edges are derived from the centroid coordinates by
 Delaunay triangulation, which connects nuclei whose Voronoi cells are adjacent. One graph spans
 the whole region, running straight across the boundaries of the sixteen tiles seen by the image
-branch. The rule requires no scale parameter, and its degree statistics are unchanged across
-cohorts whose nuclear density is not. The mean degree is 5.97 in TCGA, UCH and CPTAC-BRCA
-alike, although a UCH region holds a third fewer nuclei than a TCGA region of the same area
-(\figureref{fig:cohort-graphs}, bottom).
+branch (\figureref{fig:cohort-graphs}, bottom). The rule requires no scale parameter, so it
+applies unchanged to cohorts whose nuclear density differs.
+
+% Figure: Dissertation/code/figures/latex/fig_cohort_graphs.py
+% \begin{figure}[htbp]
+% \floatconts
+%   {fig:cohort-graphs}
+%   {\caption{HoVer-Net output and cell graphs in the three cohorts. One region per cohort, chosen
+%   as the region whose nucleus count is closest to the cohort median, shown on the $192\,\mu$m
+%   window with the most neoplastic nuclei. Top: nuclear contours coloured by HoVer-Net type.
+%   Bottom: the Delaunay graph used for training, nodes coloured by type. Titles give the nucleus
+%   count and the mean $\pm$ SD node degree of the whole region.}}
+%   {\includegraphics[width=0.8\linewidth]{figures/fig_cohort_graphs.pdf}}
+% \end{figure}
 
 \subsection{Dual-Branch Architecture}
 \label{sec:dual-branch-architecture}
@@ -318,15 +297,12 @@ where $V_r$ is the node set of region $r$. The readout retains both the typical 
 most extreme one, since a single highly abnormal nucleus can be diagnostically decisive.
 
 Second, the image branch. The same region is divided into a $4 \times 4$ grid of 1024-pixel
-tiles. UNI2-h \citep{chen2024} expects roughly 224-pixel inputs, and downsampling a 1024-pixel
-tile that far would blur away cell-level detail. Each tile is therefore divided again into a
-$4 \times 4$ grid of 256-pixel views. Each view is resized and embedded by the frozen encoder,
-taking the class token concatenated with the mean patch token (3072-d), and the sixteen view
-embeddings are averaged. Each tile vector is projected to 128 dimensions by LayerNorm, a linear
-map, ReLU and dropout. The sixteen tiles are then pooled by gated attention \citep{ilse2018}
-and normalised, giving $z^{u}_{r}$. The encoder is frozen throughout. The question is what the
-graph adds on top of a strong image representation, and that comparison is only clean if the
-image representation cannot co-adapt to the graph branch.
+tiles, and each tile is divided again into a $4 \times 4$ grid of 256-pixel views, so that
+cell-level detail is not blurred away by the resizing UNI2-h \citep{chen2024} requires. Each
+view is embedded by the frozen encoder, taking the class token concatenated with the mean patch
+token (3072-d), and the sixteen view embeddings are averaged. Each tile vector is projected to
+128 dimensions by LayerNorm, a linear map, ReLU and dropout. The sixteen tiles are then pooled
+by gated attention \citep{ilse2018} and normalised, giving $z^{u}_{r}$.
 
 Third, the two branches are fused at region level, before slide aggregation, by a single
 learned scalar that scales the image branch against the normalised graph branch,
@@ -339,8 +315,9 @@ layer-normalised, so $g$ is directly interpretable as the relative weight of the
 A value $g>1$ means the image branch dominates and $g<1$ the cell graph, and we report it as a
 result.
 
-Fourth, the regions are aggregated with attention. The fused region vectors $\{z_r\}_{r=1}^{N}$ of a slide are
-reduced to a single slide vector by gated attention pooling \citep{ilse2018},
+Fourth, the regions are aggregated with attention. The fused region vectors
+$\{z_r\}_{r=1}^{N}$ of a slide are reduced to a single slide vector by gated attention pooling
+\citep{ilse2018},
 \begin{equation}
 \label{eq:abmil}
 z_{S} = \sum_{r} a_{r} z_{r}, \qquad
@@ -358,21 +335,19 @@ layer of width 64, ReLU and dropout into a single logit. One model is trained pe
 \mathcal{L} = -\frac{1}{|B|} \sum_{S \in B} \Big[ \omega\, y_S \log \hat{p}_S
 + (1 - y_S) \log (1 - \hat{p}_S) \Big], \qquad \omega = \frac{n_{-}}{n_{+}},
 \end{equation}
-where $n_{+}$ and $n_{-}$ count the positive and negative training slides. 
+where $n_{+}$ and $n_{-}$ count the positive and negative training slides.
 
 \subsection{Region Budget Protocol}
 \label{sec:region-sampling-protocol}
 
-The budget $N \in \{2, 4, 8, 16\}$ is the quantity we vary. It corresponds to roughly
+The budget $N \in \{2, 4, 8, 16\}$ is the quantity we vary, which corresponds to roughly
 2--16\,mm$^2$ of tissue per slide. The smallest setting is a deliberate anchor: $N=2$ matches
 the segmentation budget of a conventional 32-patch pipeline ($2 \times 16$ tiles of 1024
-pixels). Region draws are nested. The windows are taken by a greedy pass over the same seeded
-shuffle, so the first $k$ regions of a 16-region draw are exactly the $k$-region draw, and
-every larger budget adds tissue to the smaller one instead of replacing it. All other
-components are held fixed while $N$ is swept, so the resulting curve isolates the dependence on
-coverage. Slides with little tissue contribute fewer regions. At $N=16$ a TCGA slide holds 15.8
-regions on average, and 1,047 of 1,096 slides reach the full sixteen. All regions of a slide
-are used in training and inference.
+pixels), so the model is still trained on a varied set of regions at the budget a patch-based
+method would use. Region draws are nested, so every larger budget adds tissue to the smaller
+one instead of replacing it. All other components are held fixed while $N$ is swept, so the
+resulting curve isolates the dependence on coverage, and all regions of a slide are used in
+training and inference.
 
 \section{Experiments and Results}
 \label{sec:experiments}
@@ -384,15 +359,13 @@ are used in training and inference.
 
 \paragraph{TCGA-BRCA (internal).}
 Diagnostic formalin-fixed sections were streamed from the NCI Imaging Data Commons. 1,096
-slides from 1,038 patients yield at least the first two regions; 51 slides scanned at
-$20\times$ are harmonised as described in \sectionref{sec:cell-graph-construction}. Labels are
-taken from the TCGA clinical fields used by \citet{guo2026}. TCGA never ran the commercial
-Oncotype DX assay, so the RS label is a research-grade score computed from bulk RNA sequencing
-of the 21 genes with \equationref{eq:rs} \citep{paik2004}, thresholded at the 85th percentile
-of the HR+/HER2$-$ subset following \citet{howard2024}; this places 302 of the 1,038 patients
-in the high-risk class. PR status is taken from immunohistochemistry (IHC; 986 patients, 661
-positive) and HER2 status from the clinical HER2 call with equivocal cases removed (843
-patients, 146 positive).
+slides from 1,038 patients yield at least the first two regions. Labels are taken from the TCGA
+clinical fields used by \citet{guo2026}. TCGA never ran the commercial Oncotype DX assay, so
+the RS label is a research-grade score computed from bulk RNA sequencing of the 21 genes with
+\equationref{eq:rs} \citep{paik2004}, thresholded at the 85th percentile of the HR+/HER2$-$
+subset following \citet{howard2024}; this places 302 of the 1,038 patients in the high-risk
+class. PR status is taken from immunohistochemistry (IHC; 986 patients, 661 positive) and HER2
+status from the clinical HER2 call with equivocal cases removed (843 patients, 146 positive).
 
 \paragraph{UCH (external).}
 The external cohort was collected at the University of Chicago Hospital (UCH) and, unlike
@@ -400,43 +373,38 @@ TCGA, carries clinically assayed Oncotype DX scores, which makes it the stricter
 generalisation: the model must transfer across scanner, magnification and label provenance.
 Slides with $\mathrm{RS} \geq 26$ are labelled high risk, giving 417 patients (472 slides, 77
 high risk). PR and HER2 status come from the clinical IHC record (PR: 500 patients, 439
-positive; HER2: 487 patients, 9 positive). A UCH slide yields 14.6 regions on average at
-$N=16$, fewer than a TCGA slide, because a region requires a complete $4 \times 4$ block of
-tissue tiles.
+positive; HER2: 487 patients, 9 positive).
 
 \paragraph{CPTAC-BRCA (external).}
 The second external cohort is the Clinical Proteomic Tumor Analysis Consortium breast cancer
 cohort (CPTAC-BRCA), a mix of $40\times$ and $20\times$ scans that, like TCGA, has no clinical
-assay. We compute a surrogate RS from RNA sequencing: $\log_2(\mathrm{TPM}+1)$ expression is
-normalised to the five reference genes, each gene is min--max scaled to 0--15 across the
-cohort, and \equationref{eq:rs} is applied. A patient is labelled high risk if
-$\mathrm{RS}_u \geq 12.24$, a cut-off fixed before any model was applied, which places the same
-fraction of the 122 CPTAC patients with slides in the high-risk class as in TCGA (28.7\%).
-108 patients (263 slides, 34 high risk) yield regions; only the RS target is available.
+assay. We compute a surrogate RS from RNA sequencing following
+\citet{TODO-rnaseq-rs}: % TODO: cite the paper this RNA-seq RS recipe is taken from
+$\log_2(\mathrm{TPM}+1)$ expression is normalised to the five reference genes, each gene is
+min--max scaled to 0--15 across the cohort, and \equationref{eq:rs} is applied. A patient is
+labelled high risk if $\mathrm{RS}_u \geq 12.24$, a cut-off fixed before any model was applied,
+which places the same fraction of the 122 CPTAC patients with slides in the high-risk class as
+in TCGA (28.7\%). 108 patients (263 slides, 34 high risk) yield regions; only the RS target is
+available.
 
 \paragraph{Protocol.}
 Internal evaluation follows the protocol of \citet{guo2026}: patient-level, label-stratified
 five-fold cross-validation with a 7:1:2 train/validation/test ratio per fold. Their split
 files are not released, so the splits are regenerated with the same protocol and a fixed seed,
 and every model in this paper uses the same files. Every slide of a patient falls in the same
-partition, and a patient's score is the mean of their slide probabilities. All patients are
-evaluated, not only the HR+/HER2$-$ subset. We report the mean and standard deviation of the
-test AUROC over the five folds. The external cohorts are never used for model selection: each
-configuration is applied as the ensemble of its five fold models (mean of the five slide
-probabilities) without retraining or recalibration, and we report patient-level AUROC with a
-95\% confidence interval from 2,000 patient bootstrap resamples.
+partition, and a patient's score is the mean of their slide probabilities. We report the mean
+and standard deviation of the test AUROC over the five folds. The external cohorts are never
+used for model selection: each configuration is applied as the ensemble of its five fold models
+(mean of the five slide probabilities) without retraining or recalibration, and we report
+patient-level AUROC with a 95\% confidence interval from 2,000 patient bootstrap resamples.
 
 \paragraph{Random seeds.}
-Three sources of randomness are fixed so that every comparison in this section is paired. The
-region draw of each slide is seeded by the slide itself (the last eight digits of its Imaging
-Data Commons series UID for TCGA, a CRC32 hash of the slide name for UCH and CPTAC), so every
-model, every budget $N$ and every rerun sees exactly the same tissue, and the nested draws of
-\sectionref{sec:region-sampling-protocol} follow from the same shuffle. The five splits are
-generated once per target with seed 1 (validation patients of fold $f$ with seed $1+f$) and
-shared by all models. Fold $f$ is trained with seed $42+f$ for weight initialisation, batch
-order and dropout. The standard deviation in \tableref{tab:tcga} is therefore the spread
-across folds, i.e.\ across disjoint test patients; the spread across region draws is measured
-separately below.
+Seeds are fixed so that every comparison in this section is paired: the region draw of a slide
+is seeded by the slide itself, the five splits are generated once per target and shared by all
+models, and each fold has its own training seed. Every model, every budget $N$ and every rerun
+therefore sees exactly the same tissue, so the standard deviation in \tableref{tab:tcga} is the
+spread across folds alone, and the spread caused by the region draw is measured separately
+below.
 
 \paragraph{Region resampling.}
 Because each slide contributes a single random draw, we test whether the results depend on which
@@ -457,14 +425,12 @@ Graphs and tile embeddings are pre-computed, so training cost is dominated by th
 linearly with $N$.
 
 \paragraph{Cost measurement.}
-The cost of a slide has two parts. Pre-processing (HoVer-Net segmentation and UNI2-h embedding of
-the sixteen tiles) is paid once per region; its throughput is taken from the extraction logs on
-an NVIDIA RTX 3090 Ti (HoVer-Net 32--51\,s and UNI2-h 2.5\,s per region). The model itself is
-timed on the same GPU for the gated configuration, on 120 TCGA slides that hold all sixteen
-regions, with three warm-up batches: training as end-to-end time per slide for AdamW steps on
-batches of four slides, including assembly of the graph batch, and inference one slide at a
-time. Peak memory is the maximum allocated CUDA memory. The GPU was shared with other jobs, so
-the model timings are indicative.
+All costs are measured on a single NVIDIA RTX 3090 Ti, with pre-processing throughput taken
+from the extraction logs and the model itself timed on 120 TCGA slides that hold all sixteen
+regions. Cost grows linearly with the region budget, and pre-processing dominates it: raising
+$N$ from 2 to 16 takes a new slide from roughly one minute to a quarter of an hour
+(\tableref{tab:cost}). A budget at the low end of the range is therefore the one worth having,
+provided accuracy does not depend on it.
 
 \subsection{Does More Region Sampling Help?}
 \label{sec:more-region-sampling}
@@ -604,7 +570,6 @@ the model timings are indicative.
   1,038 / 986 / 843 patients; UCH $n$ = 416 / 499. UCH HER2 (9 positives) is omitted.}}
   {\includegraphics[width=0.85\linewidth]{figures/fig_morph_heatmap.pdf}}
 \end{figure}
-
 \section{Discussion}
 \label{sec:discussion}
 
