@@ -25,6 +25,20 @@
 
 \begin{abstract}
 % Abstract registration deadline: 2026-11-30 AoE.
+The 21-gene recurrence score (RS) guides chemotherapy in early breast cancer, but the assay is
+expensive and slow, which motivates predicting it from routine H\&E slides. Multiple-instance
+learning on tile embeddings is the usual approach, but it encodes each tile independently and
+does not model how individual cells are arranged. We therefore represent tissue as cell graphs,
+built from HoVer-Net nuclei joined by Delaunay triangulation, and combine a graph neural network
+on these graphs with a pathology foundation-model image branch through a learned gate, so that
+the model can draw on both. Whereas earlier methods use the whole slide, we limit each slide
+to $N$ regions of 1\,mm$^2$ and vary $N$ from 2 to 16. On TCGA-BRCA (1,038 patients) the gated
+model reaches an AUROC of 85.1 with only two regions, and more regions change it by at most 1.2
+points. On two external cohorts, applied without retraining, it stops improving at $N=4$ on
+CPTAC-BRCA (AUROC 85.1) and at $N=8$ on UCH (75.5), so a few square millimetres of tissue are
+enough. Finally, we relate interpretable descriptors of
+the cell graphs to the RS. In all three cohorts the strongest correlate is the variability of
+neoplastic nuclear size, a marker of nuclear pleomorphism.
 \end{abstract}
 
 \begin{keywords}
@@ -538,16 +552,17 @@ of every $N=2$ region in physical units and relate their patient means to the re
 (\figureref{fig:morph}). On TCGA the strongest correlate is the variability of neoplastic
 nuclear size (area CV, $\rho = 0.47$), a measure of nuclear pleomorphism. High-RS tumours are
 also denser and more neoplastic, with less connective tissue ($\rho = -0.28$). Architectural
-descriptors are weaker ($|\rho| \le 0.15$). On UCH the area CV is again the strongest
-correlate ($\rho = 0.21$). Because the node features are $z$-scored within each region, the
+descriptors are weaker ($|\rho| \le 0.15$). The area CV is also the strongest correlate on both
+external cohorts (CPTAC-BRCA $\rho = 0.33$, UCH $\rho = 0.21$), and the only significant one on
+CPTAC-BRCA. Because the node features are $z$-scored within each region, the
 region-level spread of nuclear size is not directly available to the graph branch.
 
 % Figure: Dissertation/code/figures/latex/fig_morph_heatmap_rs.py (data: Results/tables/region_morphology.csv)
 \begin{figure}[htbp]
 \floatconts
   {fig:morph}
-  {\caption{Spearman $\rho$ between patient-mean region descriptors and the continuous RS ($^{*}q<0.05$, $^{**}q<0.001$, Benjamini--Hochberg).}}
-  {\includegraphics[width=0.55\linewidth]{figures/fig_morph_heatmap_rs.pdf}}
+  {\caption{Spearman $\rho$ between patient-mean region descriptors and the continuous RS ($^{*}q<0.05$, $^{**}q<0.001$, Benjamini--Hochberg within cohort).}}
+  {\includegraphics[width=\linewidth]{figures/fig_morph_heatmap_rs.pdf}}
 \end{figure}
 
 \subsection{Node Feature Ablation}
