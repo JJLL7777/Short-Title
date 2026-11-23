@@ -256,19 +256,14 @@ percentage points on average, against 11.5 after bicubic interpolation.
 \begin{figure}[htbp]
 \floatconts
   {fig:sr-fidelity}
-  {\caption{HoVer-Net on a native $40\times$ TCGA region degraded to $10\times$ and restored by
-  bicubic interpolation or Swin2SR ($\times 4$), against the native image (100\,$\mu$m window;
-  counts are for the whole 512\,$\mu$m crop). Contour colour: PanNuke type.}}
+  {\caption{HoVer-Net on a TCGA region at $10\times$, after bicubic or Swin2SR $\times 4$ restoration, and at native $40\times$ (contour colour: cell type).}}
   {\includegraphics[width=\linewidth]{figures/fig_sr_fidelity.pdf}}
 \end{figure}
 
 \begin{table}[htbp]
 \floatconts
   {tab:sr-fidelity}
-  {\caption{Agreement of HoVer-Net on restored images with HoVer-Net on the native $40\times$
-  image, over 20 TCGA regions (mean $\pm$ SD). Count: restored / native nuclei. Prec./Rec.:
-  fraction of restored / native nuclei matched; Type: same PanNuke type among matched pairs;
-  $\Delta$neo: absolute difference of the neoplastic fraction (percentage points).}}
+  {\caption{Agreement with HoVer-Net on native $40\times$ over 20 TCGA regions (Count: restored / native nuclei; $\Delta$neo: error of the neoplastic fraction in points).}}
   {\small
   \begin{tabular}{llcccccc}
   \hline
@@ -289,7 +284,7 @@ that nuclei on internal boundaries are not cut), which returns for every nucleus
 polygonal contour, an axis-aligned bounding box, and one of six PanNuke cell types with its
 confidence. How many nuclei a region holds differs by cohort: a TCGA region contains 3,971 on
 average (median 3,855, interquartile range 2,286--5,198), against 4,122 in CPTAC-BRCA and
-2,664 in UCH (\figureref{fig:cohort-graphs}, top). Regions with too few nuclei to triangulate
+2,664 in UCH. Regions with too few nuclei to triangulate
 are background, yield no graph, and are discarded.
 
 Fourth, each nucleus becomes a node. Its feature is a $13$-dimensional morphometric descriptor
@@ -301,7 +296,7 @@ are $z$-scored within the region.
 Fifth, the nodes are joined into edges. Edges are derived from the centroid coordinates by
 Delaunay triangulation, which connects nuclei whose Voronoi cells are adjacent. One graph spans
 the whole region, running straight across the boundaries of the sixteen tiles seen by the image
-branch (\figureref{fig:cohort-graphs}, bottom). The rule requires no scale parameter, so it
+branch. The rule requires no scale parameter, so it
 applies unchanged to cohorts whose nuclear density differs.
 
 % Figure: Dissertation/code/figures/latex/fig_cohort_graphs.py
@@ -413,8 +408,7 @@ high risk).
 \paragraph{CPTAC-BRCA (external).}
 The second external cohort is the Clinical Proteomic Tumor Analysis Consortium breast cancer
 cohort (CPTAC-BRCA), a mix of $40\times$ and $20\times$ scans that, like TCGA, has no clinical
-assay. We compute a surrogate RS from RNA sequencing following
-\citet{TODO-rnaseq-rs}: % TODO: cite the paper this RNA-seq RS recipe is taken from
+assay. We compute a surrogate RS from RNA sequencing:
 $\log_2(\mathrm{TPM}+1)$ expression is normalised to the five reference genes, each gene is
 min--max scaled to 0--15 across the cohort, and \equationref{eq:rs} is applied. A patient is
 labelled high risk if $\mathrm{RS}_u \geq 12.24$, a cut-off fixed before any model was applied,
@@ -465,6 +459,24 @@ $N$ from 2 to 16 takes a new slide from roughly one minute to a quarter of an ho
 (\tableref{tab:cost}). A budget at the low end of the range is therefore the one worth having,
 provided accuracy does not depend on it.
 
+\begin{table}[htbp]
+\floatconts
+  {tab:cost}
+  {\caption{Cost per slide against the region budget $N$ (gated model, RTX 3090 Ti).}}
+  {\small
+  \begin{tabular}{lcccccc}
+  \hline
+   & & & \multicolumn{2}{c}{Inference} & \multicolumn{2}{c}{Training} \\
+  $N$ & Tissue (mm$^2$) & Nuclei & Total (min) & Model (ms) / Peak (GB) & ms & Peak (GB) \\
+  \hline
+  2  & 2.1  & 7,651  & 1.1--1.8  & 4.9 / 0.18 & 4.1  & 0.56 \\
+  4  & 4.2  & 15,394 & 2.3--3.6  & 3.1 / 0.32 & 5.1  & 1.16 \\
+  8  & 8.4  & 30,527 & 4.6--7.1  & 5.1 / 0.54 & 9.6  & 2.15 \\
+  16 & 16.8 & 59,533 & 9.1--14.2 & 9.8 / 1.01 & 18.7 & 4.07 \\
+  \hline
+  \end{tabular}}
+\end{table}
+
 \subsection{Performance Across Region Budgets and Region Draws}
 \label{sec:more-region-sampling}
 
@@ -482,6 +494,14 @@ CPTAC-BRCA at $N=4$ and 75.5 on UCH at $N=8$, and neither cohort improves beyond
 the gated model is ahead of the image branch by up to 3.8 points on CPTAC and within 1.5 points
 of it on UCH.
 
+% Figure: Dissertation/code/figures/latex/fig_auroc_vs_n_rs.py
+\begin{figure}[htbp]
+\floatconts
+  {fig:auroc-vs-n}
+  {\caption{RS AUROC (\%) against the region budget $N$; bands: $\pm 1$ SD across folds (TCGA) and 95\% bootstrap CI (external).}}
+  {\includegraphics[width=\linewidth]{figures/fig_auroc_vs_n_rs.pdf}}
+\end{figure}
+
 \paragraph{Region draws.}
 Training on a different draw of regions changes little. Retraining the gated model on every
 non-overlapping set of $N$ regions and testing it on every set (\tableref{tab:resample}), the
@@ -491,27 +511,10 @@ not an artefact of one favourable draw, although that draw was indeed slightly f
 $N=2$ (85.1 against a mean of 84.3). Externally the spread is 0.9--2.3 points, and on CPTAC it
 falls from 3.1 at $N=2$ to 0.9 at $N=4$.
 
-% Figure: Dissertation/code/figures/latex/fig_auroc_vs_n_rs.py
-\begin{figure}[htbp]
-\floatconts
-  {fig:auroc-vs-n}
-  {\caption{AUROC (\%) for the binarised recurrence score as the number of regions per slide $N$
-  grows. Image only: image branch; Graph only: graph branch; Gated: both, fused by
-  \equationref{eq:fusion}. TCGA-BRCA (internal): mean over the five folds, band $\pm 1$ SD
-  across folds. CPTAC-BRCA (108 patients, 34 high-risk) and UCH (417 patients, 77 high-risk),
-  external: patient-level AUROC of the five-fold ensemble trained on TCGA without retraining,
-  band 95\% bootstrap CI.}}
-  {\includegraphics[width=\linewidth]{figures/fig_auroc_vs_n_rs.pdf}}
-\end{figure}
-
 \begin{table}[htbp]
 \floatconts
   {tab:resample}
-  {\caption{Robustness to the region draw (gated model, AUROC \%). Each cell is the mean
-  $\pm$ SD over all combinations of training set and test set of non-overlapping regions (64 /
-  16 / 4 combinations for $N = 2 / 4 / 8$). TCGA: five-fold mean per combination; external
-  cohorts: patient-level AUROC of the five-fold ensemble per combination. The SD is the spread
-  caused by the choice of regions, not across folds.}}
+  {\caption{Gated AUROC (\%, mean $\pm$ SD) over all train-set/test-set combinations of non-overlapping region draws.}}
   {\small
   \begin{tabular}{lccc}
   \hline
@@ -520,28 +523,6 @@ falls from 3.1 at $N=2$ to 0.9 at $N=4$.
   TCGA-BRCA  & 84.3 $\pm$ 0.8 & 85.2 $\pm$ 0.6 & 85.8 $\pm$ 0.5 \\
   CPTAC-BRCA & 81.6 $\pm$ 3.1 & 83.5 $\pm$ 0.9 & 83.2 $\pm$ 0.9 \\
   UCH        & 71.3 $\pm$ 2.3 & 73.2 $\pm$ 2.0 & 74.1 $\pm$ 1.4 \\
-  \hline
-  \end{tabular}}
-\end{table}
-
-\begin{table}[htbp]
-\floatconts
-  {tab:cost}
-  {\caption{Cost per slide as a function of the region budget $N$ (gated model, RTX 3090 Ti).
-  Inference on a new slide: HoVer-Net and UNI2-h for $N$ regions (range from the extraction logs)
-  plus the model forward pass. Training: end-to-end time per slide for one AdamW step in batches of
-  four. Peak: maximum allocated CUDA memory. Model timings were taken on a shared GPU and are
-  indicative.}}
-  {\small
-  \begin{tabular}{lcccccc}
-  \hline
-   & & & \multicolumn{2}{c}{Inference} & \multicolumn{2}{c}{Training} \\
-  $N$ & Tissue (mm$^2$) & Nuclei & Total (min) & Model (ms) / Peak (GB) & ms & Peak (GB) \\
-  \hline
-  2  & 2.1  & 7,651  & 1.1--1.8  & 4.9 / 0.18 & 4.1  & 0.56 \\
-  4  & 4.2  & 15,394 & 2.3--3.6  & 3.1 / 0.32 & 5.1  & 1.16 \\
-  8  & 8.4  & 30,527 & 4.6--7.1  & 5.1 / 0.54 & 9.6  & 2.15 \\
-  16 & 16.8 & 59,533 & 9.1--14.2 & 9.8 / 1.01 & 18.7 & 4.07 \\
   \hline
   \end{tabular}}
 \end{table}
@@ -565,12 +546,7 @@ region-level spread of nuclear size is not directly available to the graph branc
 \begin{figure}[htbp]
 \floatconts
   {fig:morph}
-  {\caption{Patient-level association of region morphology with the recurrence score.
-  Descriptors are computed from the HoVer-Net output and the Delaunay graph of each $N=2$ region
-  in physical units and averaged over the regions of a patient. Cells give Spearman's $\rho$
-  with the continuous score: red, higher in high-RS patients; blue, lower.
-  $^{*}$\,$q<0.05$, $^{**}$\,$q<0.001$ (Benjamini--Hochberg within column; bold). TCGA $n$ =
-  1,038 patients; UCH $n$ = 416.}}
+  {\caption{Spearman $\rho$ between patient-mean region descriptors and the continuous RS ($^{*}q<0.05$, $^{**}q<0.001$, Benjamini--Hochberg).}}
   {\includegraphics[width=0.55\linewidth]{figures/fig_morph_heatmap_rs.pdf}}
 \end{figure}
 
@@ -592,10 +568,7 @@ branch.
 \begin{table}[htbp]
 \floatconts
   {tab:nodefeat}
-  {\caption{Node feature ablation at $N=2$ (AUROC \%, binarised recurrence score). Base: the
-  13-d features of \sectionref{sec:cell-graph-construction}; F1: + 32 structural features
-  (45-d); F2: + 512-d ResNet-34 nucleus embedding (525-d); F3: both (557-d). TCGA: mean $\pm$ SD
-  over five folds; external: patient-level AUROC of the five-fold ensemble.}}
+  {\caption{Node feature ablation at $N=2$ (AUROC \%; TCGA: mean $\pm$ SD over folds; external: five-fold ensemble).}}
   {\small
   \begin{tabular}{llcccc}
   \hline
