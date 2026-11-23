@@ -451,7 +451,8 @@ across folds alone, and the spread caused by the region draw is measured separat
 Because each slide contributes a single random draw, we test whether the results depend on which
 regions were drawn. The sixteen regions of every slide are split into non-overlapping sets of
 $N$ regions ($r_{kN},\dots,r_{(k+1)N-1}$), giving eight sets for $N=2$, four for $N=4$ and two
-for $N=8$; set 0 is the draw used in \figureref{fig:auroc-vs-n}. The
+for $N=8$; $N=16$ uses all sixteen regions and therefore has a single draw. Set 0 is the draw
+used in \figureref{fig:auroc-vs-n}. The
 gated model is retrained on every set with the same splits and seeds, and every trained model is
 then tested on every set, both on the set it was trained on and on all others. This gives 64, 16
 and 4 train-set/test-set combinations for $N = 2, 4, 8$ per cohort. Test patients are always the
