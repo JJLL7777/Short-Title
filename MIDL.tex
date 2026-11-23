@@ -474,31 +474,27 @@ provided accuracy does not depend on it.
 \label{sec:more-region-sampling}
 
 \paragraph{Five-fold results.}
-On TCGA (\figureref{fig:auroc-vs-n}) the gated model rises from 85.1 to 86.3 AUROC for RS between
-$N=2$ and $N=8$ and from 70.3 to 74.0 for HER2 between $N=2$ and $N=16$, and most of the gain
-is reached by $N=4$--$8$. The image branch alone is within about one point of the gated model
-for RS and PR up to $N=8$, and 2.1 points ahead of it on PR at $N=16$. The graph branch alone benefits most from more regions (PR 65.5
-to 73.1, RS 76.2 to 80.4), but stays 6--9 points below the image branch at $N=16$. On the
-external cohorts (\tableref{tab:external}) the picture is the same. Gated RS reaches 85.1 on
-CPTAC-BRCA and 75.5 on UCH, and it exceeds the image branch on CPTAC by up to 3.8 points
-($N=4$) while staying within 1.5 points of it on UCH. UCH PR does not change with $N$, and UCH
-HER2, with nine positive patients, has confidence intervals that include chance.
+On TCGA the three targets behave differently as $N$ grows (\figureref{fig:auroc-vs-n}). RS is
+almost flat: the gated model moves from 85.1 at $N=2$ to 86.3 at $N=8$ and back to 85.5 at
+$N=16$. PR and HER2 keep improving, from 76.8 to 79.3 and from 70.3 to 74.0 respectively, and
+for every target most of the change is reached by $N=4$--8. The ordering of the three models is
+the same at every budget. The image branch alone is within about a point of the gated model on
+RS and PR, and 2.1 points ahead of it on PR at $N=16$; the graph branch alone stays 6--9 points
+behind, although it gains the most from extra regions (RS 76.2 to 80.4, PR 65.5 to 73.1). The
+external cohorts repeat the pattern (\tableref{tab:external}). Gated RS reaches 85.1 on
+CPTAC-BRCA and 75.5 on UCH, ahead of the image branch by up to 3.8 points on CPTAC ($N=4$) and
+within 1.5 points of it on UCH, while UCH PR does not move with $N$ and UCH HER2, with nine
+positive patients, has confidence intervals that include chance.
 
 \paragraph{Region draws.}
-The choice of regions matters much less than the choice of fold (\tableref{tab:resample}). On
-TCGA the spread over all train-set/test-set combinations is 0.5--1.1 points for RS and PR,
-against 1.7--4.6 points across folds for the same model, and for every task it is smallest at
-$N=8$. HER2 at $N=2$ (2.9) is the exception. The mean over draws rises steadily from $N=2$ to $N=8$ (RS 84.3 to 85.8, PR 77.4 to
-79.8, HER2 67.7 to 72.3), which confirms the trend of \figureref{fig:auroc-vs-n} independently
-of any single draw. The single draw at $N=2$ was slightly favourable on TCGA (RS 85.1 against a
-mean of 84.3; HER2 70.3 against 67.7). Externally the spread is 0.9--2.3 points except for
-UCH HER2; on CPTAC it falls from 3.1 at $N=2$ to 0.9 at $N=4$.
-
-\paragraph{Cost.}
-Pre-processing dominates the cost and grows linearly with $N$, whereas the model itself takes
-under 10\,ms per slide at inference for any budget (\tableref{tab:cost}). $N=4$ therefore keeps most of the
-accuracy of $N=16$ at a quarter of its pre-processing time (2.3--3.6 against 9.1--14.2 minutes
-per slide).
+Training on a different draw of regions changes little. Retraining the gated model on every
+non-overlapping set of $N$ regions and testing it on every set (\tableref{tab:resample}), the
+spread on TCGA is 0.5--1.1 points for RS and PR, against 1.7--4.6 points across folds for the
+same model; HER2 at $N=2$ (2.9) is the exception. The mean over draws still rises from $N=2$ to
+$N=8$ (RS 84.3 to 85.8, PR 77.4 to 79.8, HER2 67.7 to 72.3), so the trend above does not depend
+on any single draw, although the draw used in \tableref{tab:tcga} was slightly favourable at
+$N=2$ (RS 85.1 against a mean of 84.3). Externally the spread is 0.9--2.3 points outside UCH
+HER2, and on CPTAC it falls from 3.1 at $N=2$ to 0.9 at $N=4$.
 
 % Figure: Dissertation/code/figures/latex/fig_auroc_vs_n.py
 \begin{figure}[htbp]
@@ -600,16 +596,11 @@ per slide).
 To see which tissue properties carry the signal, we compute fourteen interpretable descriptors
 of every $N=2$ region in physical units and relate their patient means to the targets
 (\figureref{fig:morph}). On TCGA the strongest correlate of RS is the variability of neoplastic
-nuclear size (area CV, $\rho = 0.47$), a measure of nuclear pleomorphism. High-RS tumours also
-have denser, more neoplastic and more necrotic regions, with less connective tissue
-($\rho = -0.28$), fewer non-neoplastic epithelial cells and less convex neoplastic nuclei.
-Architectural descriptors are weaker ($|\rho| \le 0.15$). PR status mirrors RS: PR-positive
-patients have less variable nuclei (AUROC 0.33), more connective tissue and less necrosis. For
-HER2 only the area CV is significant (AUROC 0.61). On UCH, the area CV is again the strongest
-correlate of RS ($\rho = 0.21$), but no descriptor is significant for PR. Pleomorphism and the
-tumour--stroma composition therefore carry most of the signal. Because the node features are
-$z$-scored within each region, the region-level spread of nuclear size is not directly
-available to the GCN.
+nuclear size (area CV, $\rho = 0.47$), a measure of nuclear pleomorphism. High-RS tumours are
+also denser and more neoplastic, with less connective tissue ($\rho = -0.28$). Architectural
+descriptors are weaker ($|\rho| \le 0.15$). PR status mirrors RS: PR-positive patients have
+less variable nuclei (AUROC 0.33), more connective tissue and less necrosis. For HER2 only the
+area CV is significant (AUROC 0.61).
 
 % Figure: Dissertation/code/figures/latex/fig_morph_heatmap.py (data: Results/tables/region_morphology.csv)
 \begin{figure}[htbp]
@@ -628,18 +619,14 @@ available to the GCN.
 \subsection{Node Feature Ablation}
 \label{sec:node-features}
 
-We test whether richer node features help, at $N=2$ with the same splits and seeds
-(\tableref{tab:nodefeat}). F1 appends 32 structural features computed from the nuclear
-positions in physical units: Voronoi cell geometry, $k$-NN distances, nucleus counts within
-15--100\,$\mu$m, incident Delaunay triangle and minimum-spanning-tree edge lengths, degree,
-clustering coefficient and random-walk structural encodings. F2 appends a 512-d embedding of an
-18\,$\mu$m crop around each nucleus from a frozen ImageNet ResNet-34. F3 appends both. The gated
-model is insensitive to the node features: all changes are within 1.5 points on TCGA and 2
-points externally, except F3 on TCGA HER2 ($-3.2$, 95\% CI $[-6.0, -0.4]$). For the graph branch alone, F1 gives the only significant
-gain, on PR ($+7.0$, $[+3.5, +10.5]$, all five folds), and it also raises external RS slightly
-(CPTAC $+2.0$, UCH $+2.8$, not significant). F2 does not transfer: it lowers graph-only RS from
-74.0 to 65.5 on CPTAC and from 62.7 to 57.6 on UCH. We therefore keep the 13-d base features,
-since nuclear appearance is already covered by the image branch.
+We also test whether richer node features help, at $N=2$ with the same splits and seeds
+(\tableref{tab:nodefeat}). The 13-d base descriptor is compared against three extensions: 32
+structural features computed from the nuclear positions in physical units (F1), a 512-d
+embedding of an 18\,$\mu$m crop around each nucleus from a frozen ImageNet ResNet-34 (F2), and
+both together (F3). The gated model barely moves. On TCGA RS it goes from 85.1 to 85.4, 84.2
+and 84.7, and every change on TCGA is within 1.5 points except F3 on HER2 ($-3.2$, 95\% CI
+$[-6.0, -0.4]$). We therefore keep the 13-d features, since nuclear appearance is already
+covered by the image branch.
 
 % Data: Dissertation/Results/tables/region_nodefeat_{tcga,external}.csv
 \begin{table}[htbp]
