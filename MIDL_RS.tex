@@ -629,8 +629,7 @@ collection of slides, whereas the graph branch is trained from scratch on about 
 patients per fold and stays 5.5--8 points behind on its own. Our design also hides part of the signal from
 the graph. The strongest correlate of the RS in all three cohorts is the variability of
 neoplastic nuclear size, but the node features are $z$-scored within each region, which removes
-exactly this region-level spread. Adding nucleus appearance embeddings did not help either, and
-it hurt transfer to the external cohorts (\sectionref{sec:node-features}). The graph is
+exactly this region-level spread. The graph is
 therefore more useful here as a means of interpretation than of prediction: its descriptors
 point to nuclear pleomorphism, which is a component of histological grade \citep{elston1991} and
 the visible side of the proliferation genes that dominate \equationref{eq:rs}.
