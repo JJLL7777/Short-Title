@@ -565,19 +565,19 @@ region-level spread of nuclear size is not directly available to the graph branc
   {\includegraphics[width=\linewidth]{figures/fig_morph_heatmap_rs.pdf}}
 \end{figure}
 
-\subsection{Node Feature Ablation}
-\label{sec:node-features}
+% \subsection{Node Feature Ablation}
+% \label{sec:node-features}
 
-We also test whether richer node features help, at $N=2$ with the same splits and seeds
-(\tableref{tab:nodefeat}). The 13-d base descriptor is compared against three extensions: 32
-structural features computed from the nuclear positions in physical units (F1), a 512-d
-embedding of an 18\,$\mu$m crop around each nucleus from a frozen ImageNet ResNet-34 (F2), and
-both together (F3). The gated model barely moves: on TCGA it goes from 85.1 to 85.4, 84.2 and
-84.7, every change within a point. The graph branch alone is more sensitive, and in the
-unhelpful direction: F2 lowers its external AUROC from 74.0 to 65.5 on CPTAC-BRCA and from 62.7
-to 57.6 on UCH, so a nucleus-level appearance embedding does not transfer across cohorts. We
-therefore keep the 13-d features, since nuclear appearance is already covered by the image
-branch.
+% We also test whether richer node features help, at $N=2$ with the same splits and seeds
+% (\tableref{tab:nodefeat}). The 13-d base descriptor is compared against three extensions: 32
+% structural features computed from the nuclear positions in physical units (F1), a 512-d
+% embedding of an 18\,$\mu$m crop around each nucleus from a frozen ImageNet ResNet-34 (F2), and
+% both together (F3). The gated model barely moves: on TCGA it goes from 85.1 to 85.4, 84.2 and
+% 84.7, every change within a point. The graph branch alone is more sensitive, and in the
+% unhelpful direction: F2 lowers its external AUROC from 74.0 to 65.5 on CPTAC-BRCA and from 62.7
+% to 57.6 on UCH, so a nucleus-level appearance embedding does not transfer across cohorts. We
+% therefore keep the 13-d features, since nuclear appearance is already covered by the image
+% branch.
 
 % Data: Dissertation/Results/tables/region_nodefeat_{tcga,external}.csv
 % \begin{table}[htbp]
@@ -599,7 +599,7 @@ branch.
 %              & Gated & 72.7 & 73.5 & 70.9 & 72.2 \\
 %   \hline
 %   \end{tabular}}
-\end{table}
+% \end{table}
 
 \section{Discussion}
 \label{sec:discussion}
