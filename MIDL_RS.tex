@@ -436,14 +436,14 @@ patient-level AUROC with a 95\% confidence interval from 2,000 patient bootstrap
 Seeds are fixed so that every comparison in this section is paired: the region draw of a slide
 is seeded by the slide itself, the five splits are generated once and shared by all models, and
 each fold has its own training seed. Every model, every budget $N$ and every rerun therefore
-sees exactly the same tissue, so the band in \figureref{fig:auroc-vs-n} is the spread across
-folds alone, and the spread caused by the region draw is measured separately below.
+sees exactly the same tissue, so the TCGA band in \figureref{fig:auroc-vs-n} is the spread
+across folds alone, and the spread caused by the region draw is measured separately below.
 
 \paragraph{Region resampling.}
 Because each slide contributes a single random draw, we test whether the results depend on which
 regions were drawn. The sixteen regions of every slide are split into non-overlapping sets of
 $N$ regions ($r_{kN},\dots,r_{(k+1)N-1}$), giving eight sets for $N=2$, four for $N=4$ and two
-for $N=8$; set 0 is the draw used in \figureref{fig:auroc-vs-n} and \tableref{tab:external}. The
+for $N=8$; set 0 is the draw used in \figureref{fig:auroc-vs-n}. The
 gated model is retrained on every set with the same splits and seeds, and every trained model is
 then tested on every set, both on the set it was trained on and on all others. This gives 64, 16
 and 4 train-set/test-set combinations for $N = 2, 4, 8$ per cohort. Test patients are always the
@@ -477,7 +477,7 @@ nothing that can be distinguished from noise. The image branch alone behaves the
 rises from 76.2 to 80.4 and gains more from extra regions than either of the others, which
 shows that additional tissue does change what a branch can learn even where the fused model
 stops improving. It nevertheless stays 6 points behind the image branch at every budget. The
-external cohorts repeat the pattern (\tableref{tab:external}). Gated RS reaches 85.1 on
+external cohorts repeat the pattern (\figureref{fig:auroc-vs-n}, centre and right). Gated RS reaches 85.1 on
 CPTAC-BRCA at $N=4$ and 75.5 on UCH at $N=8$, and neither cohort improves beyond those budgets;
 the gated model is ahead of the image branch by up to 3.8 points on CPTAC and within 1.5 points
 of it on UCH.
@@ -491,39 +491,18 @@ not an artefact of one favourable draw, although that draw was indeed slightly f
 $N=2$ (85.1 against a mean of 84.3). Externally the spread is 0.9--2.3 points, and on CPTAC it
 falls from 3.1 at $N=2$ to 0.9 at $N=4$.
 
-% Figure: Dissertation/code/figures/latex/fig_auroc_vs_n.py
+% Figure: Dissertation/code/figures/latex/fig_auroc_vs_n_rs.py
 \begin{figure}[htbp]
 \floatconts
   {fig:auroc-vs-n}
-  {\caption{Internal five-fold AUROC (\%) for the binarised recurrence score on TCGA-BRCA as the
-  number of regions per slide $N$ grows. Image only: image branch; Graph only: graph branch;
-  Gated: both, fused by \equationref{eq:fusion}. Lines and numbers: mean over the five folds;
-  bands: $\pm 1$ SD across folds.}}
-  {\includegraphics[width=0.7\linewidth]{figures/fig_auroc_vs_n.pdf}}
+  {\caption{AUROC (\%) for the binarised recurrence score as the number of regions per slide $N$
+  grows. Image only: image branch; Graph only: graph branch; Gated: both, fused by
+  \equationref{eq:fusion}. TCGA-BRCA (internal): mean over the five folds, band $\pm 1$ SD
+  across folds. CPTAC-BRCA (108 patients, 34 high-risk) and UCH (417 patients, 77 high-risk),
+  external: patient-level AUROC of the five-fold ensemble trained on TCGA without retraining,
+  band 95\% bootstrap CI.}}
+  {\includegraphics[width=\linewidth]{figures/fig_auroc_vs_n_rs.pdf}}
 \end{figure}
-
-\begin{table}[htbp]
-\floatconts
-  {tab:external}
-  {\caption{External patient-level AUROC (\%) [95\% bootstrap CI] of the five-fold ensemble
-  trained on TCGA, without retraining. Numbers in parentheses: patients / high-risk patients.
-  Both cohorts are evaluated on the binarised recurrence score; CPTAC-BRCA has an RNA-derived
-  score only.}}
-  {\small
-  \begin{tabular}{llcccc}
-  \hline
-  Cohort & Model & $N=2$ & $N=4$ & $N=8$ & $N=16$ \\
-  \hline
-  CPTAC-BRCA & Image & 78.0 [66, 88] & 81.3 [71, 90] & 81.2 [71, 90] & 81.9 [72, 90] \\
-  (108 / 34) & Graph & 74.0 [64, 84] & 76.0 [65, 86] & 74.0 [63, 84] & 72.9 [62, 83] \\
-             & Gated & 78.8 [69, 88] & 85.1 [76, 93] & 84.0 [74, 92] & 83.4 [74, 91] \\
-  \hline
-  UCH        & Image & 72.1 [65, 78] & 75.1 [68, 82] & 76.4 [70, 82] & 75.1 [69, 81] \\
-  (417 / 77) & Graph & 62.7 [56, 69] & 64.6 [57, 72] & 66.6 [60, 73] & 68.6 [62, 75] \\
-             & Gated & 72.7 [66, 79] & 74.3 [68, 80] & 75.5 [69, 82] & 75.2 [69, 81] \\
-  \hline
-  \end{tabular}}
-\end{table}
 
 \begin{table}[htbp]
 \floatconts
@@ -582,7 +561,7 @@ descriptors are weaker ($|\rho| \le 0.15$). On UCH the area CV is again the stro
 correlate ($\rho = 0.21$). Because the node features are $z$-scored within each region, the
 region-level spread of nuclear size is not directly available to the graph branch.
 
-% Figure: Dissertation/code/figures/latex/fig_morph_heatmap.py (data: Results/tables/region_morphology.csv)
+% Figure: Dissertation/code/figures/latex/fig_morph_heatmap_rs.py (data: Results/tables/region_morphology.csv)
 \begin{figure}[htbp]
 \floatconts
   {fig:morph}
@@ -592,7 +571,7 @@ region-level spread of nuclear size is not directly available to the graph branc
   with the continuous score: red, higher in high-RS patients; blue, lower.
   $^{*}$\,$q<0.05$, $^{**}$\,$q<0.001$ (Benjamini--Hochberg within column; bold). TCGA $n$ =
   1,038 patients; UCH $n$ = 416.}}
-  {\includegraphics[width=0.7\linewidth]{figures/fig_morph_heatmap.pdf}}
+  {\includegraphics[width=0.55\linewidth]{figures/fig_morph_heatmap_rs.pdf}}
 \end{figure}
 
 \subsection{Node Feature Ablation}
