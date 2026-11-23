@@ -457,13 +457,13 @@ GPU. The checkpoint with the best patient-level validation AUROC is evaluated on
 Graphs and tile embeddings are pre-computed, so training cost is dominated by the GNN and grows
 linearly with $N$.
 
-\paragraph{Cost measurement.}
-All costs are measured on a single NVIDIA RTX 3090 Ti, with pre-processing throughput taken
-from the extraction logs and the model itself timed on 120 TCGA slides that hold all sixteen
-regions. Cost grows linearly with the region budget, and pre-processing dominates it: raising
-$N$ from 2 to 16 takes a new slide from roughly one minute to a quarter of an hour
-(\tableref{tab:cost}). A budget at the low end of the range is therefore the one worth having,
-provided accuracy does not depend on it.
+% \paragraph{Cost measurement.}
+% All costs are measured on a single NVIDIA RTX 3090 Ti, with pre-processing throughput taken
+% from the extraction logs and the model itself timed on 120 TCGA slides that hold all sixteen
+% regions. Cost grows linearly with the region budget, and pre-processing dominates it: raising
+% $N$ from 2 to 16 takes a new slide from roughly one minute to a quarter of an hour
+% (\tableref{tab:cost}). A budget at the low end of the range is therefore the one worth having,
+% provided accuracy does not depend on it.
 
 \subsection{Performance Across Region Budgets and Region Draws}
 \label{sec:more-region-sampling}
@@ -491,6 +491,16 @@ not an artefact of one favourable draw, although that draw was indeed slightly f
 $N=2$ (85.1 against a mean of 84.3). Externally the spread is 0.9--2.3 points, and on CPTAC it
 falls from 3.1 at $N=2$ to 0.9 at $N=4$.
 
+\paragraph{Cost.}
+All costs are measured on a single NVIDIA RTX 3090 Ti, with pre-processing throughput taken
+from the extraction logs and the model itself timed on 120 TCGA slides that hold all sixteen
+regions. Cost grows linearly with the region budget, and pre-processing dominates it: raising
+$N$ from 2 to 16 takes a new slide from roughly one minute to a quarter of an hour
+(\tableref{tab:cost}). The results above settle which end of that range to take, since accuracy
+does not depend on the budget beyond $N=4$. At $N=4$ a slide keeps the accuracy of $N=16$ for a
+quarter of its pre-processing time, 2.3--3.6 against 9.1--14.2 minutes. The model itself is not
+what costs: it runs in under 10\,ms per slide at inference at any budget, so segmentation and
+patch embedding account for almost all of the saving.
 % Figure: Dissertation/code/figures/latex/fig_auroc_vs_n_rs.py
 \begin{figure}[htbp]
 \floatconts
