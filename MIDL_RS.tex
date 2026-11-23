@@ -600,17 +600,64 @@ branch.
 %              & Gated & 72.7 & 73.5 & 70.9 & 72.2 \\
 %   \hline
 %   \end{tabular}}
-\end{table}
+% \end{table}
 
 \section{Discussion}
 \label{sec:discussion}
 
-% ~1 page
+The recurrence score can be read from a few square millimetres of tissue. On TCGA the gated
+model varies by 1.2 points between $N=2$ and $N=16$, less than the spread across folds, and
+the spread across region draws is under a point; the external cohorts stop improving
+at $N=4$ or $N=8$. The same held in the patch-based pipeline from which this model was
+developed, where doubling the number of patches did not improve the score. A plausible reason
+is that the correlates of the score in \figureref{fig:morph} (nuclear pleomorphism, neoplastic
+fraction and the amount of connective tissue) are properties of the tumour as a whole rather
+than of rare foci, so two regions of tumour already sample them. In practice this lowers the
+time per slide from 9--14 minutes to 1--2 minutes (\tableref{tab:cost}). Two caveats
+apply. The RS labels of TCGA and CPTAC-BRCA are computed from RNA sequencing rather than from
+the clinical assay, and on UCH, the only cohort with assayed scores, accuracy is lowest. The
+external confidence intervals are also wide (CPTAC-BRCA has 34 high-risk patients), so the
+budgets at which the external curves level off are approximate.
+
+The cell graph, by contrast, adds little to the image branch. On TCGA the gated and image-only
+models are within one point of each other at every budget, well inside the fold-to-fold
+spread, and the learned gate settles slightly above one ($g = 1.01$--$1.12$ across folds and
+budgets), so the fused model leans on the image branch. Only on CPTAC-BRCA is the gated model
+ahead by more, up to 3.8 points, and that gain lies within its wide confidence interval. This matches our earlier patch-level experiments, and it is
+not surprising: the image branch inherits a frozen foundation model trained on a very large
+collection of slides, whereas the graph branch is trained from scratch on about 730 training
+patients per fold and stays 5.5--8 points behind on its own. Our design also hides part of the signal from
+the graph. The strongest correlate of the RS in all three cohorts is the variability of
+neoplastic nuclear size, but the node features are $z$-scored within each region, which removes
+exactly this region-level spread. Adding nucleus appearance embeddings did not help either, and
+it hurt transfer to the external cohorts (\sectionref{sec:node-features}). The graph is
+therefore more useful here as a means of interpretation than of prediction: its descriptors
+point to nuclear pleomorphism, which is a component of histological grade \citep{elston1991} and
+the visible side of the proliferation genes that dominate \equationref{eq:rs}.
 
 \section{Conclusion}
 \label{sec:conclusion}
 
-% ~0.3 pages
+We predicted the 21-gene recurrence score from H\&E with a region-level model that fuses a
+cell graph network and a pathology foundation model through a learned gate, and varied the
+amount of tissue it sees. Two regions of 1\,mm$^2$ per slide reach an AUROC of 85.1 on TCGA-BRCA,
+and the external cohorts need no more than four to eight, so the cost of processing a slide
+can be cut about eightfold without losing accuracy. Interpretable descriptors of the
+cell graphs identify nuclear pleomorphism as the strongest correlate of the score in all three
+cohorts. The graph branch, however, did not significantly improve prediction over the image
+branch alone, which is why any model that fuses a cell graph with a foundation model should be
+compared against the image-only baseline.
+
+Future work should look for ways to make better use of the graph. The most direct is to keep
+the region-level statistics that within-region normalisation removes, such as nuclear size in
+physical units and its spread, so that the graph can see the pleomorphism signal that the
+morphology analysis found. A second is to pretrain the graph branch on cell graphs from many
+cohorts instead of training it from scratch, so that it starts closer to the image encoder.
+A third is a richer fusion than a single scalar gate, for example cross-attention between
+nuclei and the tile tokens around them, or regularising the image branch so that the graph is
+pushed to contribute information the image does not already carry. Finally, since a small
+budget suffices, the graph could be used to choose which regions to analyse, and the model
+should be tested on further cohorts with clinically assayed scores.
 
 \clearpage  % Acknowledgements, references and appendix do not count toward the page limit
 
