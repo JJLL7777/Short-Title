@@ -192,7 +192,7 @@ morphology at all.
 \floatconts
   {fig:pipeline}
   {\caption{Pipeline on one TCGA slide. (a)--(c) Tissue detection and the sixteen nested regions, coloured by the smallest budget $N$ that includes them. (d) One $4096$-pixel region with the $4 \times 4$ grid of tiles embedded by UNI2-h. (e) HoVer-Net nuclei coloured by type. (f) The Delaunay cell graph over the whole region. Bottom: the dual-branch model.}}
-  {\includegraphics[width=0.8\linewidth]{figures/fig_pipeline_rs.pdf}}
+  {\includegraphics[width=0.62\linewidth]{figures/fig_pipeline_rs.pdf}}
 \end{figure}
 
 The pipeline turns one gigapixel slide into one risk estimate, and it does so in two halves
@@ -422,7 +422,7 @@ $N=8$, and neither cohort improves beyond those budgets. The gated model is ahea
 branch by up to 3.8 points on CPTAC and within 1.5 points of it on UCH.
 
 % Figure: Dissertation/code/figures/latex/fig_auroc_vs_n_rs.py
-\begin{figure}[htbp]
+\begin{figure}[!ht]
 \floatconts
   {fig:auroc-vs-n}
   {\caption{RS AUROC (\%) against the region budget $N$; bands: $\pm 1$ SD across folds (TCGA) and 95\% bootstrap CI (external).}}
@@ -443,7 +443,7 @@ CPTAC it falls from 3.1 at $N=2$ to 0.9 at $N=4$. The condition left open above 
 accuracy does not depend on the budget beyond $N=4$, and $N=4$ keeps the accuracy of $N=16$ for
 a quarter of its pre-processing time (\tableref{tab:cost}).
 
-\begin{table}[htbp]
+\begin{table}[!ht]
 \floatconts
   {tab:resample}
   {\caption{Gated AUROC (\%, mean $\pm$ SD) over all train-set/test-set combinations of non-overlapping region draws.}}
@@ -475,7 +475,7 @@ external cohorts (CPTAC-BRCA $\rho = 0.33$, UCH $\rho = 0.21$), and the only sig
 CPTAC-BRCA. Because the node features are $z$-scored within each region, the
 region-level spread of nuclear size is not directly available to the graph branch.
 % Figure: Dissertation/code/figures/latex/fig_morph_heatmap_rs.py (data: Results/tables/region_morphology.csv)
-\begin{figure}[htbp]
+\begin{figure}[!ht]
 \floatconts
   {fig:morph}
   {\caption{Spearman $\rho$ between patient-mean region descriptors and the continuous RS ($^{*}q<0.05$, $^{**}q<0.001$, Benjamini--Hochberg within cohort).}}
@@ -497,7 +497,7 @@ region-level spread of nuclear size is not directly available to the graph branc
 % branch.
 
 % Data: Dissertation/Results/tables/region_nodefeat_{tcga,external}.csv
-% \begin{table}[htbp]
+% \begin{table}[!ht]
 % \floatconts
 %   {tab:nodefeat}
 %   {\caption{Node feature ablation at $N=2$ (AUROC \%; TCGA: mean $\pm$ SD over folds; external: five-fold ensemble).}}
@@ -587,17 +587,22 @@ should be tested on further cohorts with clinically assayed scores.
 \section{Super-Resolution Fidelity}
 \label{app:sr}
 
+HoVer-Net on 20 native $40\times$ TCGA regions, compared with the same regions degraded to
+$20\times$ or $10\times$ and restored with bicubic interpolation or Swin2SR
+(\sectionref{sec:cell-graph-construction}): one example in \figureref{fig:sr-fidelity}, the
+agreement over all regions in \tableref{tab:sr-fidelity}.
+
 % Data: Dissertation/Results/tables/sr_validation_{regions,summary}.csv
 % (code/preprocessing/run_sr_validation.sh, code/model/sr_validation_eval.py)
 % Figure: Dissertation/code/figures/latex/fig_sr_fidelity.py
-\begin{figure}[htbp]
+\begin{figure}[!ht]
 \floatconts
   {fig:sr-fidelity}
   {\caption{HoVer-Net on a TCGA region at $10\times$, after bicubic or Swin2SR $\times 4$ restoration, and at native $40\times$ (contour colour: cell type).}}
   {\includegraphics[width=\linewidth]{figures/fig_sr_fidelity.pdf}}
 \end{figure}
 
-\begin{table}[htbp]
+\begin{table}[!ht]
 \floatconts
   {tab:sr-fidelity}
   {\caption{Agreement with HoVer-Net on native $40\times$ over 20 TCGA regions (Count: restored / native nuclei; $\Delta$neo: error of the neoplastic fraction in points).}}
@@ -618,7 +623,12 @@ should be tested on further cohorts with clinically assayed scores.
 \section{Cost per Slide}
 \label{app:cost}
 
-\begin{table}[htbp]
+Tissue, nuclei and run time per slide for each region budget (\tableref{tab:cost}). The total
+inference time of a new slide is dominated by pre-processing, whose throughput is taken from the
+extraction logs; the model columns time the region model alone on pre-computed graphs and
+embeddings (\sectionref{sec:setup}).
+
+\begin{table}[!ht]
 \floatconts
   {tab:cost}
   {\caption{Cost per slide against the region budget $N$ (gated model, RTX 3090 Ti; model times at $N=1$ scaled by their ratio to $N=2$ timed in the same run).}}
@@ -640,8 +650,12 @@ should be tested on further cohorts with clinically assayed scores.
 \section{Validation of the Surrogate Recurrence Score}
 \label{app:rs-recipe}
 
+The CPTAC-BRCA surrogate RS recipe applied to TCGA-BRCA RNA sequencing (cBioPortal PanCancer
+Atlas, RSEM) and compared with the TCGA research RS that the models are trained on
+(\figureref{fig:rs-recipe}).
+
 % Figure: Dissertation/code/figures/extra/rs_recipe_check.py (TCGA RNA: cBioPortal brca_tcga_pan_can_atlas_2018, RSEM)
-\begin{figure}[htbp]
+\begin{figure}[!ht]
 \floatconts
   {fig:rs-recipe}
   {\caption{The CPTAC-BRCA surrogate RS recipe applied to TCGA-BRCA RNA sequencing against the TCGA research RS used for training (left; colour: TCGA high-risk label) and the agreement of the high-risk calls at the same high-risk fraction (right).}}
