@@ -573,11 +573,15 @@ budgets), so the fused model leans on the image branch. Only on CPTAC-BRCA is th
 ahead by more, up to 3.8 points, and that gain lies within its wide confidence interval. This
 is not surprising: the image branch inherits a frozen foundation model trained on a very large
 collection of slides, whereas the graph branch is trained from scratch on about 730 training
-patients per fold and stays 5.5--11 points behind on its own. Our design also hides part of the
-signal from the graph. The strongest correlate of the RS in all three cohorts is the
-variability of neoplastic nuclear size, but the node features are $z$-scored within each
-region, which removes exactly this region-level spread. The graph is therefore more useful
-here as a means of interpretation than of prediction: its descriptors point to nuclear
+patients per fold and stays 5.5--11 points behind on its own. The strongest correlate of the
+RS in all three cohorts is the variability of neoplastic nuclear size, which the
+within-region $z$-score of the shape node features removes, so we tested whether this
+normalisation hides the signal. At $N=2$, $z$-scoring the four shape terms with the training
+fold's statistics instead raised the graph branch on TCGA by 1.4 points (95\% CI $-0.7$ to
+3.4, higher in all five folds), but changed it by less than a point on both external cohorts,
+left the gated model unchanged ($-0.5$ points, $g = 1.08$); unnormalised physical units lowered
+the graph branch on TCGA by 0.9 points. No difference was significant. The normalisation therefore does not explain why the graph adds little. The graph is
+more useful here as a means of interpretation than of prediction: its descriptors point to nuclear
 pleomorphism, which is a component of histological grade \citep{elston1991} and the visible
 side of the proliferation genes that dominate \equationref{eq:rs}.
 
@@ -594,10 +598,10 @@ cohorts. The graph branch, however, did not significantly improve prediction ove
 branch alone, which is why any model that fuses a cell graph with a foundation model should be
 compared against the image-only baseline.
 
-Future work should look for ways to make better use of the graph. The most direct is to keep
-the region-level statistics that within-region normalisation removes, such as nuclear size in
-physical units and its spread, so that the graph can see the pleomorphism signal that the
-morphology analysis found. A second is to pretrain the graph branch on cell graphs from many
+Future work should look for ways to make better use of the graph. Restoring region-level
+shape statistics in the node features was not enough, so the pleomorphism signal that the
+morphology analysis found could instead be passed to the model as an explicit region-level
+descriptor next to the pooled graph embedding. A second is to pretrain the graph branch on cell graphs from many
 cohorts instead of training it from scratch, so that it starts closer to the image encoder.
 A third is a richer fusion than a single scalar gate, for example cross-attention between
 nuclei and the tile tokens around them, or regularising the image branch so that the graph is
