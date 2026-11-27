@@ -187,7 +187,16 @@ morphology at all.
 \section{Methods}
 \label{sec:methods}
 
-The pipeline turns one gigapixel slide into one risk estimate, and it does so in two halves.
+% Figure: Dissertation/code/figures/latex/fig_pipeline_regions_rs.py
+\begin{figure}[htbp]
+\floatconts
+  {fig:pipeline}
+  {\caption{Pipeline on one TCGA slide. (a)--(c) Tissue detection and the sixteen nested regions, coloured by the smallest budget $N$ that includes them. (d) One $4096$-pixel region with the $4 \times 4$ grid of tiles embedded by UNI2-h. (e) HoVer-Net nuclei coloured by type. (f) The Delaunay cell graph over the whole region. Bottom: the dual-branch model.}}
+  {\includegraphics[width=0.8\linewidth]{figures/fig_pipeline_rs.pdf}}
+\end{figure}
+
+The pipeline turns one gigapixel slide into one risk estimate, and it does so in two halves
+(\figureref{fig:pipeline}).
 The first half builds the input. A slide is reduced to $N$ tissue regions, those regions are
 brought to a common resolution, their nuclei are segmented, each nucleus is given a
 morphometric descriptor, and the nuclei of a region are joined into one cell graph. The second
@@ -226,37 +235,9 @@ version to those on the native image by centroid (one-to-one, within 4\,$\mu$m).
 path is almost lossless with either method (F1 0.98). On the $\times 4$ path, Swin2SR recovers
 92\% of the nuclei with 90\% type agreement and keeps 97\% of the matched neoplastic nuclei
 neoplastic. Bicubic interpolation misses 15\% of the nuclei and relabels a quarter of the
-neoplastic ones, mostly as connective (\figureref{fig:sr-fidelity}, \tableref{tab:sr-fidelity}).
+neoplastic ones, mostly as connective (\appendixref{app:sr}, \figureref{fig:sr-fidelity} and \tableref{tab:sr-fidelity}).
 After Swin2SR the neoplastic fraction, on which the node features depend, is off by 4.9
 percentage points on average, against 11.5 after bicubic interpolation.
-
-% Data: Dissertation/Results/tables/sr_validation_{regions,summary}.csv
-% (code/preprocessing/run_sr_validation.sh, code/model/sr_validation_eval.py)
-% Figure: Dissertation/code/figures/latex/fig_sr_fidelity.py
-\begin{figure}[htbp]
-\floatconts
-  {fig:sr-fidelity}
-  {\caption{HoVer-Net on a TCGA region at $10\times$, after bicubic or Swin2SR $\times 4$ restoration, and at native $40\times$ (contour colour: cell type).}}
-  {\includegraphics[width=\linewidth]{figures/fig_sr_fidelity.pdf}}
-\end{figure}
-
-\begin{table}[htbp]
-\floatconts
-  {tab:sr-fidelity}
-  {\caption{Agreement with HoVer-Net on native $40\times$ over 20 TCGA regions (Count: restored / native nuclei; $\Delta$neo: error of the neoplastic fraction in points).}}
-  {\small
-  \begin{tabular}{llcccccc}
-  \hline
-  Input & Method & Count & Prec. & Rec. & F1 & Type & $\Delta$neo \\
-  \hline
-  $20\times$ & Bicubic $\times 2$  & 0.99 & 0.98 & 0.97 & 0.98 $\pm$ 0.02 & 0.97 & 1.1 \\
-             & Swin2SR $\times 2$  & 1.01 & 0.98 & 0.99 & 0.98 $\pm$ 0.01 & 0.97 & 1.9 \\
-  \hline
-  $10\times$ & Bicubic $\times 4$  & 0.88 & 0.98 & 0.85 & 0.91 $\pm$ 0.04 & 0.80 & 11.5 \\
-             & Swin2SR $\times 4$  & 0.98 & 0.95 & 0.92 & 0.93 $\pm$ 0.04 & 0.90 & 4.9 \\
-  \hline
-  \end{tabular}}
-\end{table}
 
 Third, nuclei are segmented and joined into a graph. Each $1.02$\,mm region is passed whole
 through HoVer-Net \citep{graham2019} with PanNuke-pretrained weights (tile mode with
@@ -418,27 +399,8 @@ All costs are measured on a single NVIDIA RTX 3090 Ti, with pre-processing throu
 from the extraction logs and the model itself timed on 120 TCGA slides that hold all sixteen
 regions. Cost grows linearly with the region budget, and pre-processing dominates it: raising
 $N$ from 1 to 16 takes a new slide from under a minute to a quarter of an hour
-(\tableref{tab:cost}). A budget at the low end of the range is therefore the one worth having,
+(\tableref{tab:cost} in \appendixref{app:cost}). A budget at the low end of the range is therefore the one worth having,
 provided accuracy does not depend on it.
-
-\begin{table}[htbp]
-\floatconts
-  {tab:cost}
-  {\caption{Cost per slide against the region budget $N$ (gated model, RTX 3090 Ti; model times at $N=1$ scaled by their ratio to $N=2$ timed in the same run).}}
-  {\small
-  \begin{tabular}{lcccccc}
-  \hline
-   & & & \multicolumn{2}{c}{Inference} & \multicolumn{2}{c}{Training} \\
-  $N$ & Tissue (mm$^2$) & Nuclei & Total (min) & Model (ms) / Peak (GB) & ms & Peak (GB) \\
-  \hline
-  1  & 1.05 & 3,805  & 0.6--0.9  & 5.4 / 0.13 & 3.3  & 0.34 \\
-  2  & 2.1  & 7,651  & 1.1--1.8  & 4.9 / 0.18 & 4.1  & 0.56 \\
-  4  & 4.2  & 15,394 & 2.3--3.6  & 3.1 / 0.32 & 5.1  & 1.16 \\
-  8  & 8.4  & 30,527 & 4.6--7.1  & 5.1 / 0.54 & 9.6  & 2.15 \\
-  16 & 16.8 & 59,533 & 9.1--14.2 & 9.8 / 1.01 & 18.7 & 4.07 \\
-  \hline
-  \end{tabular}}
-\end{table}
 
 \subsection{Performance Across Region Budgets and Region Draws}
 \label{sec:more-region-sampling}
@@ -621,6 +583,59 @@ should be tested on further cohorts with clinically assayed scores.
 \bibliography{references}
 
 \appendix
+
+\section{Super-Resolution Fidelity}
+\label{app:sr}
+
+% Data: Dissertation/Results/tables/sr_validation_{regions,summary}.csv
+% (code/preprocessing/run_sr_validation.sh, code/model/sr_validation_eval.py)
+% Figure: Dissertation/code/figures/latex/fig_sr_fidelity.py
+\begin{figure}[htbp]
+\floatconts
+  {fig:sr-fidelity}
+  {\caption{HoVer-Net on a TCGA region at $10\times$, after bicubic or Swin2SR $\times 4$ restoration, and at native $40\times$ (contour colour: cell type).}}
+  {\includegraphics[width=\linewidth]{figures/fig_sr_fidelity.pdf}}
+\end{figure}
+
+\begin{table}[htbp]
+\floatconts
+  {tab:sr-fidelity}
+  {\caption{Agreement with HoVer-Net on native $40\times$ over 20 TCGA regions (Count: restored / native nuclei; $\Delta$neo: error of the neoplastic fraction in points).}}
+  {\small
+  \begin{tabular}{llcccccc}
+  \hline
+  Input & Method & Count & Prec. & Rec. & F1 & Type & $\Delta$neo \\
+  \hline
+  $20\times$ & Bicubic $\times 2$  & 0.99 & 0.98 & 0.97 & 0.98 $\pm$ 0.02 & 0.97 & 1.1 \\
+             & Swin2SR $\times 2$  & 1.01 & 0.98 & 0.99 & 0.98 $\pm$ 0.01 & 0.97 & 1.9 \\
+  \hline
+  $10\times$ & Bicubic $\times 4$  & 0.88 & 0.98 & 0.85 & 0.91 $\pm$ 0.04 & 0.80 & 11.5 \\
+             & Swin2SR $\times 4$  & 0.98 & 0.95 & 0.92 & 0.93 $\pm$ 0.04 & 0.90 & 4.9 \\
+  \hline
+  \end{tabular}}
+\end{table}
+
+\section{Cost per Slide}
+\label{app:cost}
+
+\begin{table}[htbp]
+\floatconts
+  {tab:cost}
+  {\caption{Cost per slide against the region budget $N$ (gated model, RTX 3090 Ti; model times at $N=1$ scaled by their ratio to $N=2$ timed in the same run).}}
+  {\small
+  \begin{tabular}{lcccccc}
+  \hline
+   & & & \multicolumn{2}{c}{Inference} & \multicolumn{2}{c}{Training} \\
+  $N$ & Tissue (mm$^2$) & Nuclei & Total (min) & Model (ms) / Peak (GB) & ms & Peak (GB) \\
+  \hline
+  1  & 1.05 & 3,805  & 0.6--0.9  & 5.4 / 0.13 & 3.3  & 0.34 \\
+  2  & 2.1  & 7,651  & 1.1--1.8  & 4.9 / 0.18 & 4.1  & 0.56 \\
+  4  & 4.2  & 15,394 & 2.3--3.6  & 3.1 / 0.32 & 5.1  & 1.16 \\
+  8  & 8.4  & 30,527 & 4.6--7.1  & 5.1 / 0.54 & 9.6  & 2.15 \\
+  16 & 16.8 & 59,533 & 9.1--14.2 & 9.8 / 1.01 & 18.7 & 4.07 \\
+  \hline
+  \end{tabular}}
+\end{table}
 
 \section{Validation of the Surrogate Recurrence Score}
 \label{app:rs-recipe}
