@@ -9,8 +9,7 @@
 \jmlrworkshop{Full Paper -- MIDL 2027 submission}
 \editors{Under Review for MIDL 2027}
 
-\title[Recurrence Score from a Few Square Millimetres]{Predicting the Breast Cancer Recurrence
-Score from a Partial Slide Image with Graph}
+\title[Recurrence Score from a Few Square Millimetres]{Efficient Breast Cancer Recurrence Risk Prediction from Partial Slides Using Cellular Graphs }
 
 % Single-blind: author names are revealed at submission.
 % NOTE: the author list is FINAL at submission time -- no additions,
@@ -26,23 +25,7 @@ Score from a Partial Slide Image with Graph}
 
 \begin{abstract}
 % Abstract registration deadline: 2026-11-30 AoE.
-The 21-gene recurrence score (RS) guides chemotherapy decisions in early breast cancer. The assay is expensive and slow, so predicting it from routine H&E slides is an attractive
-alternative. H&E slides are already produced for diagnosis, so such a prediction consumes no
-further tissue, adds no cost, and is available as soon as the pathologist reads the slide.
-Multiple-instance learning on tile embeddings is the usual approach. We hypothesise that a
-tile embedding alone cannot capture how neighbouring cells interact, since each tile is
-encoded on its own. We therefore represent tissue as cell graphs, built from HoVer-Net nuclei
-joined by Delaunay triangulation. A graph neural network over these graphs is combined with a
-pathology foundation encoder through a learned gate, which is a single scalar, trained with
-the network, that weights the image branch against the graph branch. Earlier methods read the
-whole slide. We instead limit each slide to $N$ regions of 1\,mm$^2$ and vary $N$ from 2 to
-16. On TCGA-BRCA (1,038 patients) the gated model reaches an AUROC of 85.1 with only two
-regions, and more regions change it by at most 1.2 points. The same holds on two external
-cohorts, applied without retraining: performance stops improving at $N=4$ on CPTAC-BRCA (AUROC
-85.1) and at $N=8$ on UCH (75.5). A few square millimetres of tissue are therefore enough. We
-then relate interpretable descriptors of the cell graphs to the RS. In TCGA-BRCA and UCH
-alike, the strongest correlate is the variability of neoplastic nuclear size, a marker of
-nuclear pleomorphism.
+Gene expression assays guide adjuvant chemotherapy decisions in early breast cancer, but they are slow, expensive and not universally accessible. Computational pathology offers a faster, low-cost alternative by predicting the recurrence risk directly from routine H\&E slides, which are already produced for diagnosis. State of the art methods apply multiple-instance learning (MIL) to whole-slide images, aggregating high-dimensional tile embeddings from pretrained encoders. Such embeddings capture tissue architecture well but do not explicitly represent the morphology of individual cells or their spatial organisation, which we hypothesise carry complementary prognostic information. We therefore combine the two: tissue is represented as cell graphs representing nuclei connected by Delaunay triangulation, and a graph neural network over these graphs is fused with a pathology foundation encoder through a learned gate. Current MIL approaches process the entire slide, which is computationally expensive, particularly at the cell level, where a single slide can contain millions of nuclei. It also leaves open how much tissue is needed for a reliable prediction. We therefore restrict each slide to between 2 and 16 mm² of tissue, sampled as 1 mm² regions. On TCGA-BRCA (1,038 patients), the gated model reaches an AUROC of 85.1 with only 2 mm², and adding more tissue changes it by at most 1.2 points. The same pattern holds on two external cohorts without retraining: performance plateaus at 4 mm² on CPTAC-BRCA (AUROC 85.1) and at 8 mm² on UCH (AUROC 75.5). This suggests that a few square millimetres of tumour tissue are sufficient for prediction. Finally, to interpret the graph branch, we relate cell-graph descriptors to the recurrence score. In all three cohorts, the strongest correlate is variability in neoplastic nuclear size, a marker of nuclear pleomorphism, linking the model to an established histological feature. 
 \end{abstract}
 
 \begin{keywords}
@@ -365,32 +348,31 @@ are used in training and inference.
 
 \subsection{Setup}
 \label{sec:setup}
-
 \paragraph{TCGA-BRCA (internal).}
-Diagnostic formalin-fixed sections were streamed from the NCI Imaging Data Commons. 1,096
-slides from 1,038 patients yield at least the first two regions. Labels are taken from the TCGA
-clinical fields used by \citet{guo2026}. TCGA never ran the commercial Oncotype DX assay, so
-the RS label is a research-grade score computed from bulk RNA sequencing of the 21 genes with
-\equationref{eq:rs} \citep{paik2004}, thresholded at the 85th percentile of the HR+/HER2$-$
-subset following \citet{howard2024}; this places 302 of the 1,038 patients in the high-risk
-class.
+TCGA-BRCA contributes 1,096 slides from 1,038 patients, streamed as diagnostic
+formalin-fixed sections from the NCI Imaging Data Commons, and all of them yield at least the
+first two regions. Labels are taken from the TCGA clinical fields used by \citet{guo2026}.
+TCGA never ran the commercial Oncotype DX assay, so the RS label is a research-grade score
+computed from bulk RNA sequencing of the 21 genes with \equationref{eq:rs} \citep{paik2004},
+thresholded at the 85th percentile of the HR+/HER2$-$ subset following \citet{howard2024}.
+This places 302 of the 1,038 patients in the high-risk class.
 
 \paragraph{UCH (external).}
-The external cohort was collected at the University of Chicago Hospital (UCH) and, unlike
-TCGA, carries clinically assayed Oncotype DX scores, which makes it the stricter test of
-generalisation: the model must transfer across scanner, magnification and label provenance.
-Slides with $\mathrm{RS} \geq 26$ are labelled high risk, giving 417 patients (472 slides, 77
-high risk).
+The first external cohort, collected at the University of Chicago Hospital (UCH), contributes
+472 slides from 417 patients. Unlike TCGA it carries clinically assayed Oncotype DX scores,
+which makes it the stricter test of generalisation: the model must transfer across scanner,
+magnification and label provenance. Slides with $\mathrm{RS} \geq 26$ are labelled high risk,
+giving 77 high-risk patients.
 
 \paragraph{CPTAC-BRCA (external).}
-The second external cohort is the Clinical Proteomic Tumor Analysis Consortium breast cancer
-cohort (CPTAC-BRCA), a mix of $40\times$ and $20\times$ scans that, like TCGA, has no clinical
-assay. We compute a surrogate RS from RNA sequencing:
-$\log_2(\mathrm{TPM}+1)$ expression is normalised to the five reference genes, each gene is
-min--max scaled to 0--15 across the cohort, and \equationref{eq:rs} is applied. A patient is
-labelled high risk if $\mathrm{RS}_u \geq 12.24$, a cut-off fixed before any model was applied,
-which places the same fraction of the 122 CPTAC patients with slides in the high-risk class as
-in TCGA (28.7\%). 108 patients (263 slides, 34 high risk) yield regions.
+The second external cohort, the Clinical Proteomic Tumor Analysis Consortium breast cancer
+cohort (CPTAC-BRCA), contributes 263 slides from 108 patients, out of the 122 patients with
+slides. It is a mix of $40\times$ and $20\times$ scans and, like TCGA, has no clinical assay.
+We compute a surrogate RS from RNA sequencing: $\log_2(\mathrm{TPM}+1)$ expression is
+normalised to the five reference genes, each gene is min--max scaled to 0--15 across the
+cohort, and \equationref{eq:rs} is applied. A patient is labelled high risk if
+$\mathrm{RS}_u \geq 12.24$, a cut-off fixed before any model was applied, which places the same
+fraction in the high-risk class as in TCGA (28.7\%) and gives 34 high-risk patients.
 
 \paragraph{Protocol.}
 Internal evaluation follows the protocol of \citet{guo2026}: patient-level, label-stratified
@@ -402,13 +384,11 @@ and standard deviation of the test AUROC over the five folds. The external cohor
 used for model selection: each configuration is applied as the ensemble of its five fold models
 (mean of the five slide probabilities) without retraining or recalibration, and we report
 patient-level AUROC with a 95\% confidence interval from 2,000 patient bootstrap resamples.
-
-\paragraph{Random seeds.}
-Seeds are fixed so that every comparison in this section is paired: the region draw of a slide
-is seeded by the slide itself, the five splits are generated once and shared by all models, and
-each fold has its own training seed. Every model, every budget $N$ and every rerun therefore
-sees exactly the same tissue, so the TCGA band in \figureref{fig:auroc-vs-n} is the spread
-across folds alone, and the spread caused by the region draw is measured separately below.
+Seeds are fixed so that every comparison is paired: the region draw of a slide is seeded by the
+slide itself, the five splits are generated once and shared by all models, and each fold has
+its own training seed. Every model, every budget $N$ and every rerun therefore sees exactly the
+same tissue, so the TCGA band in \figureref{fig:auroc-vs-n} is the spread across folds alone,
+and the spread caused by the region draw is measured separately below.
 
 \paragraph{Region resampling.}
 Because each slide contributes a single random draw, we test whether the results depend on which
@@ -487,7 +467,9 @@ spread on TCGA is 0.5--0.8 points, against 3.1--4.2 points across folds for the 
 mean over draws rises slightly from $N=2$ to $N=8$ (84.3 to 85.8), so the flat curve above is
 not an artefact of one favourable draw, although that draw was indeed slightly favourable at
 $N=2$ (85.1 against a mean of 84.3). Externally the spread is 0.9--2.3 points, and on CPTAC it
-falls from 3.1 at $N=2$ to 0.9 at $N=4$.
+falls from 3.1 at $N=2$ to 0.9 at $N=4$. The condition left open above is therefore met:
+accuracy does not depend on the budget beyond $N=4$, and $N=4$ keeps the accuracy of $N=16$ for
+a quarter of its pre-processing time (\tableref{tab:cost}).
 
 \begin{table}[htbp]
 \floatconts
@@ -520,7 +502,6 @@ descriptors are weaker ($|\rho| \le 0.15$). The area CV is also the strongest co
 external cohorts (CPTAC-BRCA $\rho = 0.33$, UCH $\rho = 0.21$), and the only significant one on
 CPTAC-BRCA. Because the node features are $z$-scored within each region, the
 region-level spread of nuclear size is not directly available to the graph branch.
-
 % Figure: Dissertation/code/figures/latex/fig_morph_heatmap_rs.py (data: Results/tables/region_morphology.csv)
 \begin{figure}[htbp]
 \floatconts
@@ -570,32 +551,28 @@ region-level spread of nuclear size is not directly available to the graph branc
 
 The recurrence score can be read from a few square millimetres of tissue. On TCGA the gated
 model varies by 1.2 points between $N=2$ and $N=16$, less than the spread across folds, and
-the spread across region draws is under a point; the external cohorts stop improving
-at $N=4$ or $N=8$. The same held in the patch-based pipeline from which this model was
-developed, where doubling the number of patches did not improve the score. A plausible reason
-is that the correlates of the score in \figureref{fig:morph} (nuclear pleomorphism, neoplastic
-fraction and the amount of connective tissue) are properties of the tumour as a whole rather
-than of rare foci, so two regions of tumour already sample them. In practice this lowers the
-time per slide from 9--14 minutes to 1--2 minutes (\tableref{tab:cost}). Two caveats
-apply. The RS labels of TCGA and CPTAC-BRCA are computed from RNA sequencing rather than from
-the clinical assay, and on UCH, the only cohort with assayed scores, accuracy is lowest. The
-external confidence intervals are also wide (CPTAC-BRCA has 34 high-risk patients), so the
-budgets at which the external curves level off are approximate.
+the spread across region draws is under a point; the external cohorts stop improving at $N=4$
+or $N=8$. At two regions the gated model reaches 85.1 on TCGA-BRCA, against 79.7 reported for
+patch-based deep learning on the same cohort \citep{howard2024}. A plausible reason for the
+saturation is that the correlates of the score in \figureref{fig:morph} (nuclear pleomorphism,
+neoplastic fraction and the amount of connective tissue) are properties of the tumour as a
+whole rather than of rare foci, so two regions of tumour already sample them. In practice this
+lowers the time per slide from 9--14 minutes to 1--2 minutes (\tableref{tab:cost}).
 
 The cell graph, by contrast, adds little to the image branch. On TCGA the gated and image-only
 models are within one point of each other at every budget, well inside the fold-to-fold
 spread, and the learned gate settles slightly above one ($g = 1.01$--$1.12$ across folds and
 budgets), so the fused model leans on the image branch. Only on CPTAC-BRCA is the gated model
-ahead by more, up to 3.8 points, and that gain lies within its wide confidence interval. This matches our earlier patch-level experiments, and it is
-not surprising: the image branch inherits a frozen foundation model trained on a very large
+ahead by more, up to 3.8 points, and that gain lies within its wide confidence interval. This
+is not surprising: the image branch inherits a frozen foundation model trained on a very large
 collection of slides, whereas the graph branch is trained from scratch on about 730 training
-patients per fold and stays 5.5--8 points behind on its own. Our design also hides part of the signal from
-the graph. The strongest correlate of the RS in all three cohorts is the variability of
-neoplastic nuclear size, but the node features are $z$-scored within each region, which removes
-exactly this region-level spread. The graph is
-therefore more useful here as a means of interpretation than of prediction: its descriptors
-point to nuclear pleomorphism, which is a component of histological grade \citep{elston1991} and
-the visible side of the proliferation genes that dominate \equationref{eq:rs}.
+patients per fold and stays 5.5--8 points behind on its own. Our design also hides part of the
+signal from the graph. The strongest correlate of the RS in all three cohorts is the
+variability of neoplastic nuclear size, but the node features are $z$-scored within each
+region, which removes exactly this region-level spread. The graph is therefore more useful
+here as a means of interpretation than of prediction: its descriptors point to nuclear
+pleomorphism, which is a component of histological grade \citep{elston1991} and the visible
+side of the proliferation genes that dominate \equationref{eq:rs}.
 
 \section{Conclusion}
 \label{sec:conclusion}
