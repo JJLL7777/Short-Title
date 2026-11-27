@@ -372,7 +372,11 @@ We compute a surrogate RS from RNA sequencing: $\log_2(\mathrm{TPM}+1)$ expressi
 normalised to the five reference genes, each gene is min--max scaled to 0--15 across the
 cohort, and \equationref{eq:rs} is applied. A patient is labelled high risk if
 $\mathrm{RS}_u \geq 12.24$, a cut-off fixed before any model was applied, which places the same
-fraction in the high-risk class as in TCGA (28.7\%) and gives 34 high-risk patients.
+fraction in the high-risk class as in TCGA (28.7\%) and gives 34 high-risk patients. Applied to
+TCGA-BRCA RNA sequencing, the same recipe correlates with the TCGA research RS at Spearman
+$\rho = 0.95$ ($n = 1{,}024$) and reproduces its high-risk labels with 93\% agreement (Cohen's
+$\kappa = 0.83$; \figureref{fig:rs-recipe}), so the CPTAC-BRCA labels follow the same definition
+as the training labels.
 
 \paragraph{Protocol.}
 Internal evaluation follows the protocol of \citet{guo2026}: patient-level, label-stratified
@@ -617,5 +621,16 @@ should be tested on further cohorts with clinically assayed scores.
 \bibliography{references}
 
 \appendix
+
+\section{Validation of the Surrogate Recurrence Score}
+\label{app:rs-recipe}
+
+% Figure: Dissertation/code/figures/extra/rs_recipe_check.py (TCGA RNA: cBioPortal brca_tcga_pan_can_atlas_2018, RSEM)
+\begin{figure}[htbp]
+\floatconts
+  {fig:rs-recipe}
+  {\caption{The CPTAC-BRCA surrogate RS recipe applied to TCGA-BRCA RNA sequencing against the TCGA research RS used for training (left; colour: TCGA high-risk label) and the agreement of the high-risk calls at the same high-risk fraction (right).}}
+  {\includegraphics[width=\linewidth]{figures/fig_rs_recipe_check.pdf}}
+\end{figure}
 
 \end{document}
