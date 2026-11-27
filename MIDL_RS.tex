@@ -25,7 +25,7 @@
 
 \begin{abstract}
 % Abstract registration deadline: 2026-11-30 AoE.
-Gene expression assays guide adjuvant chemotherapy decisions in early breast cancer, but they are slow, expensive and not universally accessible. Computational pathology offers a faster, low-cost alternative by predicting the recurrence risk directly from routine H\&E slides, which are already produced for diagnosis. State of the art methods apply multiple-instance learning (MIL) to whole-slide images, aggregating high-dimensional tile embeddings from pretrained encoders. Such embeddings capture tissue architecture well but do not explicitly represent the morphology of individual cells or their spatial organisation, which we hypothesise carry complementary prognostic information. We therefore combine the two: tissue is represented as cell graphs representing nuclei connected by Delaunay triangulation, and a graph neural network over these graphs is fused with a pathology foundation encoder through a learned gate. Current MIL approaches process the entire slide, which is computationally expensive, particularly at the cell level, where a single slide can contain millions of nuclei. It also leaves open how much tissue is needed for a reliable prediction. We therefore restrict each slide to between 2 and 16 mm² of tissue, sampled as 1 mm² regions. On TCGA-BRCA (1,038 patients), the gated model reaches an AUROC of 85.1 with only 2 mm², and adding more tissue changes it by at most 1.2 points. The same pattern holds on two external cohorts without retraining: performance plateaus at 4 mm² on CPTAC-BRCA (AUROC 85.1) and at 8 mm² on UCH (AUROC 75.5). This suggests that a few square millimetres of tumour tissue are sufficient for prediction. Finally, to interpret the graph branch, we relate cell-graph descriptors to the recurrence score. In all three cohorts, the strongest correlate is variability in neoplastic nuclear size, a marker of nuclear pleomorphism, linking the model to an established histological feature. 
+Gene expression assays guide adjuvant chemotherapy decisions in early breast cancer, but they are slow, expensive and not universally accessible. Computational pathology offers a faster, low-cost alternative by predicting the recurrence risk directly from routine H\&E slides, which are already produced for diagnosis. State of the art methods apply multiple-instance learning (MIL) to whole-slide images, aggregating high-dimensional tile embeddings from pretrained encoders. Such embeddings capture tissue architecture well but do not explicitly represent the morphology of individual cells or their spatial organisation, which we hypothesise carry complementary prognostic information. We therefore combine the two: tissue is represented as cell graphs representing nuclei connected by Delaunay triangulation, and a graph neural network over these graphs is fused with a pathology foundation encoder through a learned gate. Current MIL approaches process the entire slide, which is computationally expensive, particularly at the cell level, where a single slide can contain millions of nuclei. It also leaves open how much tissue is needed for a reliable prediction. We therefore restrict each slide to between 1 and 16 mm² of tissue, sampled as 1 mm² regions. On TCGA-BRCA (1,038 patients), a single 1 mm² region gives an AUROC of 82.7, the gated model reaches 85.1 with only 2 mm², and adding more tissue changes it by at most 1.2 points. The same pattern holds on two external cohorts without retraining: performance plateaus at 4 mm² on CPTAC-BRCA (AUROC 85.1) and at 8 mm² on UCH (AUROC 75.5). This suggests that a few square millimetres of tumour tissue are sufficient for prediction. Finally, to interpret the graph branch, we relate cell-graph descriptors to the recurrence score. In all three cohorts, the strongest correlate is variability in neoplastic nuclear size, a marker of nuclear pleomorphism, linking the model to an established histological feature. 
 \end{abstract}
 
 \begin{keywords}
@@ -80,7 +80,7 @@ The first is the patch budget. Earlier
 models either tile the tissue exhaustively \citep{campanella2019, lu2021} or sample
 $10^3$--$10^4$ tiles per slide \citep{courtiol2018, wulczyn2020}, and both compute and memory
 grow with that count. We therefore reduce each slide to $N$ regions of $1 \times 1$\,mm, hold
-the architecture fixed, and vary $N$ from 2 to 16, looking for the budget beyond which
+the architecture fixed, and vary $N$ from 1 to 16, looking for the budget beyond which
 performance no longer changes. .
 
 The second is relational. Pooling over patch embeddings blurs the relationships between
@@ -101,7 +101,7 @@ Our contributions are as follows.
 \begin{itemize}
 \item A region-level dual-branch model with a gated module, which reflects both the
   relations between morphological features and the spatial appearance of the image.
-\item A controlled study of the region budget, with $N \in \{2,4,8,16\}$ nested regions per
+\item A controlled study of the region budget, with $N \in \{1,2,4,8,16\}$ nested regions per
   slide, on one internal and two external cohorts.
 \item An analysis of which graph morphology features and cell types are associated with the
   recurrence score, identifying where the predictive signal resides and not only how much
@@ -336,8 +336,8 @@ where $n_{+}$ and $n_{-}$ count the positive and negative training slides.
 \subsection{Region Budget Protocol}
 \label{sec:region-sampling-protocol}
 
-The budget $N \in \{2, 4, 8, 16\}$ is the quantity we vary, which corresponds to roughly
-2--16\,mm$^2$ of tissue per slide. Region draws are nested, so every larger budget adds tissue
+The budget $N \in \{1, 2, 4, 8, 16\}$ is the quantity we vary, which corresponds to roughly
+1--16\,mm$^2$ of tissue per slide. Region draws are nested, so every larger budget adds tissue
 to the smaller one instead of replacing it. All other components are held fixed while $N$ is
 swept, so the resulting curve isolates the dependence on coverage, and all regions of a slide
 are used in training and inference.
@@ -393,12 +393,12 @@ and the spread caused by the region draw is measured separately below.
 \paragraph{Region resampling.}
 Because each slide contributes a single random draw, we test whether the results depend on which
 regions were drawn. The sixteen regions of every slide are split into non-overlapping sets of
-$N$ regions ($r_{kN},\dots,r_{(k+1)N-1}$), giving eight sets for $N=2$, four for $N=4$ and two
-for $N=8$; $N=16$ uses all sixteen regions and therefore has a single draw. Set 0 is the draw
+$N$ regions ($r_{kN},\dots,r_{(k+1)N-1}$), giving sixteen sets for $N=1$, eight for $N=2$, four
+for $N=4$ and two for $N=8$; $N=16$ uses all sixteen regions and therefore has a single draw. Set 0 is the draw
 used in \figureref{fig:auroc-vs-n}. The
 gated model is retrained on every set with the same splits and seeds, and every trained model is
-then tested on every set, both on the set it was trained on and on all others. This gives 64, 16
-and 4 train-set/test-set combinations for $N = 2, 4, 8$ per cohort. Test patients are always the
+then tested on every set, both on the set it was trained on and on all others. This gives 256,
+64, 16 and 4 train-set/test-set combinations for $N = 1, 2, 4, 8$ per cohort. Test patients are always the
 held-out patients of the fold (or the external cohort), so only the tissue shown to the model
 changes. A slide with no region in a test set is left out of that set only.
 
@@ -413,20 +413,21 @@ linearly with $N$.
 All costs are measured on a single NVIDIA RTX 3090 Ti, with pre-processing throughput taken
 from the extraction logs and the model itself timed on 120 TCGA slides that hold all sixteen
 regions. Cost grows linearly with the region budget, and pre-processing dominates it: raising
-$N$ from 2 to 16 takes a new slide from roughly one minute to a quarter of an hour
+$N$ from 1 to 16 takes a new slide from under a minute to a quarter of an hour
 (\tableref{tab:cost}). A budget at the low end of the range is therefore the one worth having,
 provided accuracy does not depend on it.
 
 \begin{table}[htbp]
 \floatconts
   {tab:cost}
-  {\caption{Cost per slide against the region budget $N$ (gated model, RTX 3090 Ti).}}
+  {\caption{Cost per slide against the region budget $N$ (gated model, RTX 3090 Ti; model times at $N=1$ scaled by their ratio to $N=2$ timed in the same run).}}
   {\small
   \begin{tabular}{lcccccc}
   \hline
    & & & \multicolumn{2}{c}{Inference} & \multicolumn{2}{c}{Training} \\
   $N$ & Tissue (mm$^2$) & Nuclei & Total (min) & Model (ms) / Peak (GB) & ms & Peak (GB) \\
   \hline
+  1  & 1.05 & 3,805  & 0.6--0.9  & 5.4 / 0.13 & 3.3  & 0.34 \\
   2  & 2.1  & 7,651  & 1.1--1.8  & 4.9 / 0.18 & 4.1  & 0.56 \\
   4  & 4.2  & 15,394 & 2.3--3.6  & 3.1 / 0.32 & 5.1  & 1.16 \\
   8  & 8.4  & 30,527 & 4.6--7.1  & 5.1 / 0.54 & 9.6  & 2.15 \\
@@ -439,18 +440,20 @@ provided accuracy does not depend on it.
 \label{sec:more-region-sampling}
 
 \paragraph{Five-fold results.}
-On TCGA the gated model is almost flat as $N$ grows (\figureref{fig:auroc-vs-n}): 85.1 at
-$N=2$, 85.9 at $N=4$, 86.3 at $N=8$ and 85.5 at $N=16$. The whole range is 1.2 points, well
-inside the fold-to-fold standard deviation of 3.1--4.2 points, so eight times more tissue buys
-nothing that can be distinguished from noise. The image branch alone behaves the same way
-(84.2 to 86.1, most of it between $N=2$ and $N=4$). The graph branch alone is the exception: it
-rises from 76.2 to 80.4 and gains more from extra regions than either of the others, which
-shows that additional tissue does change what a branch can learn even where the fused model
-stops improving. It nevertheless stays 6 points behind the image branch at every budget. The
-external cohorts repeat the pattern (\figureref{fig:auroc-vs-n}, centre and right). Gated RS reaches 85.1 on
-CPTAC-BRCA at $N=4$ and 75.5 on UCH at $N=8$, and neither cohort improves beyond those budgets;
-the gated model is ahead of the image branch by up to 3.8 points on CPTAC and within 1.5 points
-of it on UCH.
+On TCGA a single region falls short, but from two regions on the gated model is almost flat
+(\figureref{fig:auroc-vs-n}): 82.7 at $N=1$, then 85.1 at $N=2$, 85.9 at $N=4$, 86.3 at $N=8$
+and 85.5 at $N=16$. From $N=2$ to $N=16$ the range is 1.2 points, well inside the fold-to-fold
+standard deviation of 3.1--4.2 points, so eight times more tissue buys nothing that can be
+distinguished from noise. The image branch alone behaves the same way (83.6 at $N=1$, then
+84.2 to 86.1, most of it between $N=2$ and $N=4$). The graph branch alone is the exception: it
+rises from 72.3 at $N=1$ to 80.4 at $N=8$ and gains more from extra regions than either of the
+others, which shows that additional tissue does change what a branch can learn even where the
+fused model stops improving. It nevertheless stays 5.5--11 points behind the image branch at
+every budget. The external cohorts repeat the pattern (\figureref{fig:auroc-vs-n}, centre and
+right). A single region is again too few (gated 76.4 on CPTAC-BRCA and 68.2 on UCH, 2.4 and
+4.5 points below $N=2$); gated RS then reaches 85.1 on CPTAC-BRCA at $N=4$ and 75.5 on UCH at
+$N=8$, and neither cohort improves beyond those budgets. The gated model is ahead of the image
+branch by up to 3.8 points on CPTAC and within 1.5 points of it on UCH.
 
 % Figure: Dissertation/code/figures/latex/fig_auroc_vs_n_rs.py
 \begin{figure}[htbp]
@@ -461,13 +464,16 @@ of it on UCH.
 \end{figure}
 
 \paragraph{Region draws.}
-Training on a different draw of regions changes little. Retraining the gated model on every
-non-overlapping set of $N$ regions and testing it on every set (\tableref{tab:resample}), the
-spread on TCGA is 0.5--0.8 points, against 3.1--4.2 points across folds for the same model. The
-mean over draws rises slightly from $N=2$ to $N=8$ (84.3 to 85.8), so the flat curve above is
-not an artefact of one favourable draw, although that draw was indeed slightly favourable at
-$N=2$ (85.1 against a mean of 84.3). Externally the spread is 0.9--2.3 points, and on CPTAC it
-falls from 3.1 at $N=2$ to 0.9 at $N=4$. The condition left open above is therefore met:
+Training on a different draw of regions changes little once a slide contributes two or more
+regions. Retraining the gated model on every non-overlapping set of $N$ regions and testing it
+on every set (\tableref{tab:resample}), the spread on TCGA is 0.5--0.8 points for $N \geq 2$,
+against 3.1--4.2 points across folds for the same model. A single region is both weaker and
+less stable: over its 256 combinations the mean is 82.0 with a spread of 1.1 points on TCGA,
+and the spread reaches 3.4 points on CPTAC-BRCA and 3.1 on UCH. The mean over draws rises from
+$N=1$ to $N=8$ (82.0 to 85.8), mostly between $N=1$ and $N=2$, so the flat curve above is not an
+artefact of one favourable draw, although that draw was indeed slightly favourable at $N=2$
+(85.1 against a mean of 84.3). Externally the spread for $N \geq 2$ is 0.9--3.1 points, and on
+CPTAC it falls from 3.1 at $N=2$ to 0.9 at $N=4$. The condition left open above is therefore met:
 accuracy does not depend on the budget beyond $N=4$, and $N=4$ keeps the accuracy of $N=16$ for
 a quarter of its pre-processing time (\tableref{tab:cost}).
 
@@ -476,13 +482,13 @@ a quarter of its pre-processing time (\tableref{tab:cost}).
   {tab:resample}
   {\caption{Gated AUROC (\%, mean $\pm$ SD) over all train-set/test-set combinations of non-overlapping region draws.}}
   {\small
-  \begin{tabular}{lccc}
+  \begin{tabular}{lcccc}
   \hline
-  Cohort & $N=2$ & $N=4$ & $N=8$ \\
+  Cohort & $N=1$ & $N=2$ & $N=4$ & $N=8$ \\
   \hline
-  TCGA-BRCA  & 84.3 $\pm$ 0.8 & 85.2 $\pm$ 0.6 & 85.8 $\pm$ 0.5 \\
-  CPTAC-BRCA & 81.6 $\pm$ 3.1 & 83.5 $\pm$ 0.9 & 83.2 $\pm$ 0.9 \\
-  UCH        & 71.3 $\pm$ 2.3 & 73.2 $\pm$ 2.0 & 74.1 $\pm$ 1.4 \\
+  TCGA-BRCA  & 82.0 $\pm$ 1.1 & 84.3 $\pm$ 0.8 & 85.2 $\pm$ 0.6 & 85.8 $\pm$ 0.5 \\
+  CPTAC-BRCA & 79.6 $\pm$ 3.4 & 81.6 $\pm$ 3.1 & 83.5 $\pm$ 0.9 & 83.2 $\pm$ 0.9 \\
+  UCH        & 68.6 $\pm$ 3.1 & 71.3 $\pm$ 2.3 & 73.2 $\pm$ 2.0 & 74.1 $\pm$ 1.4 \\
   \hline
   \end{tabular}}
 \end{table}
@@ -549,10 +555,11 @@ region-level spread of nuclear size is not directly available to the graph branc
 \section{Discussion}
 \label{sec:discussion}
 
-The recurrence score can be read from a few square millimetres of tissue. On TCGA the gated
-model varies by 1.2 points between $N=2$ and $N=16$, less than the spread across folds, and
-the spread across region draws is under a point; the external cohorts stop improving at $N=4$
-or $N=8$. At two regions the gated model reaches 85.1 on TCGA-BRCA, against 79.7 reported for
+The recurrence score can be read from a few square millimetres of tissue, though not from one.
+A single region costs 2.4 points on TCGA and as much or more on the external cohorts, but from
+$N=2$ to $N=16$ the gated model varies by only 1.2 points on TCGA, less than the spread across
+folds, and the spread across region draws is under a point; the external cohorts stop
+improving at $N=4$ or $N=8$. At two regions the gated model reaches 85.1 on TCGA-BRCA, against 79.7 reported for
 patch-based deep learning on the same cohort \citep{howard2024}. A plausible reason for the
 saturation is that the correlates of the score in \figureref{fig:morph} (nuclear pleomorphism,
 neoplastic fraction and the amount of connective tissue) are properties of the tumour as a
@@ -566,7 +573,7 @@ budgets), so the fused model leans on the image branch. Only on CPTAC-BRCA is th
 ahead by more, up to 3.8 points, and that gain lies within its wide confidence interval. This
 is not surprising: the image branch inherits a frozen foundation model trained on a very large
 collection of slides, whereas the graph branch is trained from scratch on about 730 training
-patients per fold and stays 5.5--8 points behind on its own. Our design also hides part of the
+patients per fold and stays 5.5--11 points behind on its own. Our design also hides part of the
 signal from the graph. The strongest correlate of the RS in all three cohorts is the
 variability of neoplastic nuclear size, but the node features are $z$-scored within each
 region, which removes exactly this region-level spread. The graph is therefore more useful
@@ -579,8 +586,8 @@ side of the proliferation genes that dominate \equationref{eq:rs}.
 
 We predicted the 21-gene recurrence score from H\&E with a region-level model that fuses a
 cell graph network and a pathology foundation model through a learned gate, and varied the
-amount of tissue it sees. Two regions of 1\,mm$^2$ per slide reach an AUROC of 85.1 on TCGA-BRCA,
-and the external cohorts need no more than four to eight, so the cost of processing a slide
+amount of tissue it sees. One region of 1\,mm$^2$ per slide is too few, but two reach an AUROC
+of 85.1 on TCGA-BRCA, and the external cohorts need no more than four to eight, so the cost of processing a slide
 can be cut about eightfold without losing accuracy. Interpretable descriptors of the
 cell graphs identify nuclear pleomorphism as the strongest correlate of the score in all three
 cohorts. The graph branch, however, did not significantly improve prediction over the image
