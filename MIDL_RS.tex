@@ -57,7 +57,7 @@ costly, at several thousand pounds per patient. It also consumes tumour tissue, 
 arrives one to two weeks after a pathologist has already read the haematoxylin and eosin (H\&E)
 slide. A model that predicts the RS from that slide would not replace the assay, but it could
 triage which patients are sent for genomic testing, at no extra tissue and no extra waiting.
-This is possible because two gene groups dominate the score, namely proliferation and oestrogen
+This is possible because two gene groups dominate the score, which are proliferation and oestrogen
 signalling, and both leave visible traces in nuclear shape and in tissue architecture
 \citep{paik2004, elston1991}. Molecular readouts have already been recovered from H\&E before.
 Examples include driver mutations \citep{coudray2018}, microsatellite instability
@@ -67,8 +67,8 @@ tried.
 
 Predicting anything from a whole-slide image (WSI) runs first into size. A slide scanned at
 $40\times$ spans on the order of $10^5 \times 10^5$ pixels, and it carries a single label that
-belongs to no particular region. Multiple instance learning (MIL) is the standard answer to
-this. The slide becomes a bag of patches, each patch is encoded on its own, and a
+belongs to no particular region. Multiple instance learning (MIL) is the conventional answer to
+this. According to MIL. the slide becomes a bag of patches, each patch is encoded on its own, and a
 permutation-invariant pooling function turns the bag into one slide representation
 \citep{dietterich1997, ilse2018, campanella2019}. The patch encoder has improved steadily inside
 this formulation. It moved from ImageNet-pretrained convolutional networks \citep{he2016,
@@ -80,18 +80,18 @@ The first is the patch budget. Earlier
 models either tile the tissue exhaustively \citep{campanella2019, lu2021} or sample
 $10^3$--$10^4$ tiles per slide \citep{courtiol2018, wulczyn2020}, and both compute and memory
 grow with that count. We therefore reduce each slide to $N$ regions of $1 \times 1$\,mm, hold
-the architecture fixed, and vary $N$ from 2 to 16, looking for the budget beyond which
-performance no longer changes. .
+the architecture fixed, and vary $N$ from 1 to 16, looking for the budget beyond which
+performance no longer changes. 
 
 The second is relational. Pooling over patch embeddings blurs the relationships between
 individual cells, so we do not expect a patch representation to express how neighbouring cells
 relate to one another \citep{ilse2018, pati2022}. Graph neural networks (GNNs) were brought
-into computational pathology to put this structure back, and they are used at two
+into computational pathology for two
 granularities. In the first, patches are the nodes and spatial adjacency gives the edges, as in
 SlideGraph+ \citep{lu2022} and Patch-GCN \citep{chen2021}. In the second, each segmented
 nucleus becomes a node carrying a morphometric descriptor, joined to the nuclei near it
-\citep{gunduz2004, zhou2019, pati2022}. We take the nucleus-level view. Within a region,
-HoVer-Net \citep{graham2019} nuclei form one cell graph, a frozen UNI2-h encoder embeds the
+\citep{gunduz2004, zhou2019, pati2022}. We select the nucleus-level view, extracting nucleus with
+HoVer-Net \citep{graham2019} to form one cell graph, a frozen UNI2-h encoder embeds the
 sixteen tiles that make up the region, and a learned gate fuses the two.
 
 The final question is to figure out which morphological properties carry the signal, which we
@@ -99,9 +99,10 @@ address by relating graph morphology and cell-type composition to the RS.
 
 Our contributions are as follows.
 \begin{itemize}
-\item A region-level dual-branch model with a gated module, which reflects both the
-  relations between morphological features and the spatial appearance of the image.
-\item A controlled study of the region budget, with $N \in \{2,4,8,16\}$ nested regions per
+\item A region-level dual-branch model with a gated module that combines the spatial
+  information in a region's cell graph with the appearance features of a frozen pathology
+  foundation encoder.
+\item A controlled study of the region budget, with $N \in \{1,2,4,8,16\}$ nested regions per
   slide, on one internal and two external cohorts.
 \item An analysis of which graph morphology features and cell types are associated with the
   recurrence score, identifying where the predictive signal resides and not only how much
@@ -123,8 +124,7 @@ commonly built on them, as in CGC-Net \citep{zhou2019} and HACT-Net \citep{pati2
 
 \paragraph{Patch encoding: UNI2-h.}
 UNI \citep{chen2024} describes whole patches instead of single cells. It is a vision
-transformer trained with DINOv2 \citep{oquab2024}, so no labels are used. The model learns
-tissue features in two ways. It matches different views of the same image, and it fills in
+transformer trained with DINOv2 \citep{oquab2024}. It matches different views of the same image, and it fills in
 masked regions from their surroundings. UNI2-h, the variant we use, is a ViT-H/14 of roughly
 681M parameters. It was trained on more than 200 million patches from over 350,000 slides. Its
 pretraining is documented not to include TCGA, which keeps our TCGA evaluation uncontaminated.
@@ -158,7 +158,7 @@ The edge rule decides which notion of neighbourhood the graph encodes. Delaunay 
 which joins nuclei whose Voronoi cells share a boundary, gives a connected planar graph that
 approximates physical cell contact, and it is the usual choice when the graph should represent
 tissue architecture rather than mere proximity \citep{gunduz2004, lu2022}. Its decisive property
-here is that it needs no scale parameter. The common alternatives each fix one: a radius rule
+here is that it needs no scale parameter. The common alternatives each fix one parameter: a radius rule
 ties connectivity to a distance tuned to one cohort's nuclear spacing \citep{pati2022}, and a
 $k$-nearest-neighbour rule fixes $k$ in advance \citep{zhou2019}.
 
